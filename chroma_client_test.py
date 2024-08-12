@@ -20,17 +20,20 @@ print(chroma_client.heartbeat())
 # print(chroma_client.list_collections(limit=100))
 list_col = chroma_client.list_collections(100)
 for col in list_col:
-    print(col)
+    # Преобразуем объект в строку и находим нужную часть
+    name_part = str(col).split(", name=")[1].rstrip(")")
+    print(name_part)
 
-settings = chroma_client.get_settings()
 
-for s in settings:
-    print(s)
 
-chroma_client.reset()
-chroma_client.clear_system_cache()
-# chroma_client.set_database("try_base")
-# chroma_client.delete_collection()
+# settings = chroma_client.get_settings()
+
+# for s in settings:
+#     print(s)
+
+# chroma_client.reset()
+# chroma_client.clear_system_cache()
+
 
 # # Чисто для проверки работоспособности
 # client = Client(host=chat_ollama_url_home)
