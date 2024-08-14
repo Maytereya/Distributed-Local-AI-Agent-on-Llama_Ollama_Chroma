@@ -48,8 +48,8 @@ emb_model = "llama3.1:8b-instruct-fp16"
 # emb_model = "nextfire/paraphrase-multilingual-minilm"
 
 # ll_model = "llama3.1:8b-instruct-fp16"
-# ll_model = "llama3.1:70b"
-ll_model = "llama3.1:70b-instruct-q6_K"
+ll_model = "llama3.1:70b"
+# ll_model = "llama3.1:70b-instruct-q6_K"
 
 
 def txt_splitter(add_urls: List[str]) -> List[Document]:
@@ -93,18 +93,19 @@ else:
 
 # STEP 1 :: store each document in a vector embedding database with Ollama
 print(f"Создаем коллекцию (STEP 1): {collection_name}")
-# collection = chroma_client.create_collection(name=collection_name)
-# docs = txt_splitter(urls_rus)  # Подставляем правильную переменную в зависимости от источника данных.
-#
-# i = 0
-# for doc in docs:
-#     i += 1
-#     print(f"Var response cycle # {i}")
-#     response = ollama_client.embeddings(model=emb_model, prompt=doc.page_content)
-#     embedding = response["embedding"]
-#     collection.add(
-#         ids=[str(uuid.uuid1())], embeddings=[embedding], metadatas=doc.metadata, documents=doc.page_content
-#     )
+
+collection = chroma_client.create_collection(name=collection_name)
+docs = txt_splitter(urls_rus)  # Подставляем правильную переменную в зависимости от источника данных.
+
+i = 0
+for doc in docs:
+    i += 1
+    print(f"Var response cycle # {i}")
+    response = ollama_client.embeddings(model=emb_model, prompt=doc.page_content)
+    embedding = response["embedding"]
+    collection.add(
+        ids=[str(uuid.uuid1())], embeddings=[embedding], metadatas=doc.metadata, documents=doc.page_content
+    )
 
 # an example prompt
 prompt = query_chroma_test_rus
@@ -128,11 +129,8 @@ results = find_collection.query(
 #     "KEYS: ",
 #     results.keys(),
 # )
-results.values()
-results.items()
-results.keys()
 
-data = results['documents'][0][0] + "\n" + results['documents'][0][1]
+data = results['documents'][0][0] + "\n\n\n" + results['documents'][0][1]
 
 print(f"Ответ Ollama Embeddings {emb_model} на вопрос {prompt} (STEP 2):")
 print(data)

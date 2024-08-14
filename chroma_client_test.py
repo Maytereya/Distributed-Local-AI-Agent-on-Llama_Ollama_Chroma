@@ -4,12 +4,12 @@ import ollama
 from ollama import Client
 from langchain_ollama import OllamaEmbeddings
 
-chat_ollama_url_home: str = "http://192.168.1.57:11434"
+# chat_ollama_url_home: str = "http://192.168.1.57:11434"
 chat_ollama_url_outdoor: str = "http://46.0.234.32:11434"
 # import index
 
-# chroma_client = chromadb.HttpClient(host='46.0.234.32', port=8000)
-chroma_client = chromadb.HttpClient(host='192.168.1.57', port=8000)
+chroma_client = chromadb.HttpClient(host='46.0.234.32', port=8000)
+# chroma_client = chromadb.HttpClient(host='192.168.1.57', port=8000)
 
 print(chroma_client.get_version())
 print(chroma_client.count_collections())
@@ -26,10 +26,10 @@ for col in list_col:
 
 
 
-# settings = chroma_client.get_settings()
+settings = chroma_client.get_settings()
 
-# for s in settings:
-#     print(s)
+for s in settings:
+    print(s)
 
 # chroma_client.reset()
 # chroma_client.clear_system_cache()

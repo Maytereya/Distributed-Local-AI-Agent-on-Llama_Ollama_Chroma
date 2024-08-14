@@ -1,3 +1,6 @@
+# Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
+# v 2.0
+
 from pprint import pprint
 
 from dotenv import load_dotenv

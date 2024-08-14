@@ -1,3 +1,6 @@
+# initial version from hinthornw
+# v 1.0
+
 from pprint import pprint  # используется для красивого вывода данных.
 from typing import List  # используется для типизации списков.
 

@@ -1,3 +1,5 @@
+# hybrid index v 1.0
+
 from typing import List
 
 from langchain_community.document_loaders import WebBaseLoader
@@ -220,21 +222,10 @@ prompt = PromptTemplate(
 
 retrieval_grader = prompt | llm | JsonOutputParser()
 
-# question = query_chroma_test
-# docs = add_to_chromadb().invoke(question)
-# doc_txt = docs[1].page_content
-# print("======================")
-# print(f"Квалификация вопроса: {question}")
-# print(retrieval_grader.invoke({"question": question, "document": doc_txt}))
-
-# print("========================")
-# print("Тестируем функции Chroma c записью на локальный диск")
-# print("Добавление")
-# add_to_chroma_disk()
-# print("Загрузка")
-# load_from_chroma_disk()
+question = query_chroma_test
+docs = add_to_chromadb().invoke(question)
+doc_txt = docs[1].page_content
+print("======================")
+print(f"Квалификация вопроса: {question}")
+print(retrieval_grader.invoke({"question": question, "document": doc_txt}))
 print("========================")
-# print("Работа Http - клиента!:")
-# # create_collection(create_chroma_client())
-# print("Только ответ на вопрос!")
-# make_a_query(query_chroma_test_rus)  # Подставляем правильную переменную.
