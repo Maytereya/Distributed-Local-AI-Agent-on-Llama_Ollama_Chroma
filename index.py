@@ -1,3 +1,4 @@
+# Deprecated
 # hybrid index v 1.0
 
 from typing import List
