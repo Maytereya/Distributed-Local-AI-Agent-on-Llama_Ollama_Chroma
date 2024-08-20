@@ -296,6 +296,7 @@ class QueryCollection:
             return None  # Возвращаем None в случае ошибки
 
 
+
 # Пример использования:
 # print(f"this is the {__name__} module")
 # rg = RetrievalGrader(embedding_model=emb_model, ollama_url=ollama_url_in, chroma_host=chroma_host_in,
