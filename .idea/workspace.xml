@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="2e27c8a5-5b0a-4605-8acd-b19eae9e306f" name="Changes" comment="Fully workable retrieval_grader_03.py">
+      <change afterPath="$PROJECT_DIR$/.idea/LocalRAGagent0.1.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Users/rakhmanov/Desktop/#dev/chroma_db/eaec0277-bcb3-44c9-b1f3-7b982e5cc2d0/length.bin" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/generate_01.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/graph_operator_01.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/retrieval_grader_gpt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hybrid.py" beforeDir="false" afterPath="$PROJECT_DIR$/hybrid.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.py" beforeDir="false" afterPath="$PROJECT_DIR$/index.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lang_graph.py" beforeDir="false" afterPath="$PROJECT_DIR$/lang_graph.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main_generate.py" beforeDir="false" afterPath="$PROJECT_DIR$/main_generate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/retrieval_grader.py" beforeDir="false" afterPath="$PROJECT_DIR$/Users/rakhmanov/Desktop/#dev/chroma_db/eaec0277-bcb3-44c9-b1f3-7b982e5cc2d0/link_lists.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/retrieval_grader_03.py" beforeDir="false" afterPath="$PROJECT_DIR$/retrieval_grader_03.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/routing.py" beforeDir="false" afterPath="$PROJECT_DIR$/routing_01.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/search.py" beforeDir="false" afterPath="$PROJECT_DIR$/search_01.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Merge.Settings">
+    <option name="BRANCH" value="origin/main" />
+  </component>
+  <component name="Git.Rebase.Settings">
+    <option name="NEW_BASE" value="origin/main" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Maytereya&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Maytereya/Llama_Ollama_Chroma.git&quot;,
+    &quot;accountId&quot;: &quot;858661c5-f13b-4d66-9d25-065d9ffe9a0e&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
+  <component name="ProjectId" id="2jQbnQOzeXBIIec0OvwReHaKVgS" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "Python.chroma_client_test.executor": "Run",
+    "Python.flask_app.executor": "Run",
+    "Python.generate.executor": "Run",
+    "Python.graph_operator_01.executor": "Run",
+    "Python.hybrid.executor": "Run",
+    "Python.index.executor": "Run",
+    "Python.index_v2.executor": "Run",
+    "Python.lang_graph.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.ollama_embeddings.executor": "Run",
+    "Python.retrieval_grader_0.3.executor": "Run",
+    "Python.retrieval_grader_0.3.py.executor": "Run",
+    "Python.retrieval_grader_03.executor": "Run",
+    "Python.retrieval_grader_gpt.executor": "Run",
+    "Python.retrieval_grader_v0.3.executor": "Run",
+    "Python.retriever_grader_v0.1.executor": "Run",
+    "Python.retriever_grader_v0.3.executor": "Run",
+    "Python.vectorstore_v0.1.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "deletionFromPopupRequiresConfirmation": "false",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/rakhmanov/PycharmProjects/LocalRAGagent0.1"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-ce3d9afa04ac-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.20224.347" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="2e27c8a5-5b0a-4605-8acd-b19eae9e306f" name="Changes" comment="" />
+      <created>1721322413789</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1721322413789</updated>
+    </task>
+    <task id="LOCAL-00001" summary="First commit">
+      <option name="closed" value="true" />
+      <created>1723327983312</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1723327983312</updated>
+    </task>
+    <task id="LOCAL-00002" summary="README UPD">
+      <option name="closed" value="true" />
+      <created>1723328519173</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1723328519173</updated>
+    </task>
+    <task id="LOCAL-00003" summary="README transl to RUS">
+      <option name="closed" value="true" />
+      <created>1723372287882</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1723372287882</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Added new module">
+      <option name="closed" value="true" />
+      <created>1723497721491</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1723497721491</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Turn to use retriver as client">
+      <option name="closed" value="true" />
+      <created>1723656555044</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1723656555044</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Updating important modules and removing obsolete ones.">
+      <option name="closed" value="true" />
+      <created>1723837693169</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1723837693169</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Fully workable retrieval_grader_03.py">
+      <option name="closed" value="true" />
+      <created>1724182933625</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1724182933625</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Fully workable retrieval_grader_03.py">
+      <option name="closed" value="true" />
+      <created>1724182974546</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1724182974546</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Fully workable retrieval_grader_03.py">
+      <option name="closed" value="true" />
+      <created>1724183005943</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1724183005943</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
+    <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="First commit" />
+    <MESSAGE value="README UPD" />
+    <MESSAGE value="README transl to RUS" />
+    <MESSAGE value="Added new module" />
+    <MESSAGE value="Turn to use retriver as client" />
+    <MESSAGE value="Updating important modules and removing obsolete ones." />
+    <MESSAGE value="Fully workable retrieval_grader_03.py" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fully workable retrieval_grader_03.py" />
+  </component>
+</project>
