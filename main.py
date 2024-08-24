@@ -3,13 +3,9 @@ from pprint import pprint
 
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
-import hybrid
+# import hybrid
+import graph_operator_01
 
-
-agent = hybrid.Agent()
-app = agent.graph
-inputs = {"question": "Why the sky is blue?"}
-for output in app.stream(inputs):
-    for key, value in output.items():
-        pprint(f"Finished running: {key}:")
-        pprint(value["generation"])
+q = input("Ваш вопрос: ")
+print(" === AGENT ANSWER === ")
+graph_operator_01.compilation(q)

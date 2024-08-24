@@ -27,16 +27,18 @@ collect_name: str = "rag-ollama"
 ollama_url_out: str = "http://46.0.234.32:11434"
 ollama_url_in: str = "http://192.168.1.57:11434"
 chat_ollama_url_belgium: str = "http://46.183.187.205:11434"
-ollama_url = ollama_url_out # Итоговое значение
+ollama_url = ollama_url_out  # Итоговое значение
 #
 chroma_host_in: str = "192.168.1.57"
 chroma_host_out: str = "46.0.234.32"
-chroma_host = chroma_host_out # Итоговое значение
+chroma_host = chroma_host_out  # Итоговое значение
 chroma_port = 8000
 #
 emb_model = "llama3.1:8b-instruct-fp16"
 ll_model = "llama3.1:8b-instruct-fp16"
-question1 = "What is agent memory?"
+
+
+# question1 = "What is agent memory?"
 # local_llm = "llama3.1:8b-instruct-fp16"
 
 
@@ -115,9 +117,6 @@ class Agent:
         print("---RETRIEVE FROM CHROMA---")
         question = state["question"]
 
-        # Retrieval
-        # documents = index.retriever.invoke(question)
-
         return {"documents": documents, "question": question}
 
     def generate(self, state: AgentState):
@@ -131,12 +130,11 @@ class Agent:
         Returns:
             state (dict): New key added to state, generation, that contains LLM generation
         """
-        print("---GENERATE answer using RAG---")
+        print("---GENERATE answer using RAG or WEB SEARCH---")
         question = state["question"]
         documents = state["documents"]
         documents = generate_01.format_docs(documents)
         # RAG generation
-        # generation = main_generate.rag_chain.invoke({"context": documents, "question": question})
         generation = generate_01.generate_first_answer(documents, question)
         return {"documents": documents, "question": question, "generation": generation}
 
@@ -330,10 +328,12 @@ class Agent:
 # На базе LLAMA3:
 
 # Compile
-agent = Agent()
-app = agent.graph
-inputs = {"question": "Why the sky is blue?"}
-for output in app.stream(inputs):
-    for key, value in output.items():
-        pprint(f"Finished running: {key}:")
-pprint(value["generation"])
+def compilation(question: str):
+    """Compile and run agent answer, based on the question"""
+    agent = Agent()
+    app = agent.graph
+    inputs = {"question": question}
+    for output in app.stream(inputs):
+        for key, value in output.items():
+            pprint(f"Finished running: {key}:")
+            pprint(value["generation"])
