@@ -1,45 +1,24 @@
 # Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
 # v 2.0
 import asyncio
-
-from retrieval_grader_03 import RetrievalGrader
+import json
+import textwrap
+from retrieve_03 import Retrieving
 from pprint import pprint
 from dotenv import load_dotenv
 from langgraph.graph import START, StateGraph, END
-from typing import TypedDict, Annotated, Optional, List
-# import operator
-from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
-from langchain_community.tools.tavily_search import TavilySearchResults
-# from typing import List  # используется для типизации списков.
+from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 
 import generate_01
 import routing_01
 import search_01
+import config as c  # Here are all ip, llm names and other important things
 
 _ = load_dotenv()
 
-tool = TavilySearchResults(max_results=2)  # increased number of results
 
-# Input variables:
-collect_name: str = "rag-ollama"
-#
-ollama_url_out: str = "http://46.0.234.32:11434"
-ollama_url_in: str = "http://192.168.1.57:11434"
-chat_ollama_url_belgium: str = "http://46.183.187.205:11434"
-ollama_url = ollama_url_out  # Итоговое значение
-#
-chroma_host_in: str = "192.168.1.57"
-chroma_host_out: str = "46.0.234.32"
-chroma_host = chroma_host_out  # Итоговое значение
-chroma_port = 8000
-#
-emb_model = "llama3.1:8b-instruct-fp16"
-ll_model = "llama3.1:8b-instruct-fp16"
-
-
-# question1 = "What is agent memory?"
-# local_llm = "llama3.1:8b-instruct-fp16"
+# tool = TavilySearchResults(max_results=2)  # increased number of results
 
 
 class AgentState(TypedDict):
@@ -108,11 +87,10 @@ class Agent:
         Returns:
             state (dict): New key added to state, documents, that contains retrieved documents
         """
-        rg = RetrievalGrader(embedding_model=emb_model, ollama_url=ollama_url_in, chroma_host=chroma_host_in,
-                             chroma_port=chroma_port, llm=ll_model, question=state["question"],
-                             collection_name=collect_name)
-        documents = asyncio.run(rg.retrieve_document())
-        # ToDo: убрать question из конструктора в метод(-ы)
+        rg = Retrieving(embedding_model=c.emb_model, ollama_url=c.ollama_url, chroma_host=c.chroma_host,
+                        chroma_port=c.chroma_port, llm=c.ll_model,
+                        collection_name=c.collect_name)
+        documents = asyncio.run(rg.retrieve_document(question=state["question"]))
 
         print("---RETRIEVE FROM CHROMA---")
         question = state["question"]
@@ -135,7 +113,7 @@ class Agent:
         documents = state["documents"]
         documents = generate_01.format_docs(documents)
         # RAG generation
-        generation = generate_01.generate_first_answer(documents, question)
+        generation = asyncio.run(generate_01.generate_answer(documents, question))
         return {"documents": documents, "question": question, "generation": generation}
 
     def grade_documents(self, state: AgentState):
@@ -158,33 +136,35 @@ class Agent:
         documents = state["documents"]
 
         # Score each doc
-        rg = RetrievalGrader(embedding_model=emb_model, ollama_url=ollama_url_in, chroma_host=chroma_host_in,
-                             chroma_port=chroma_port, llm=ll_model, question=state["question"],
-                             collection_name=collect_name)
+        rg = Retrieving(embedding_model=c.emb_model, ollama_url=c.ollama_url, chroma_host=c.chroma_host,
+                        chroma_port=c.chroma_port, llm=c.ll_model,
+                        collection_name=c.collect_name)
 
-        # ToDo: убрать question из конструктора в метод(-ы)
         filtered_docs = []
         web_search = "No"
-        for d in documents:
-            # score = index.retrieval_grader.invoke(
-            #     {"question": question, "document": d.page_content}
-            # )
-            score = rg.grade().invoke(
-                {"question": question, "document": d.page_content}
-            )
+        if documents is not None:
+            for d in documents:
+                # score = index.retrieval_grader.invoke(
+                #     {"question": question, "document": d.page_content}
+                # )
+                score = rg.grade().invoke(
+                    {"question": question, "document": d.page_content}
+                )
 
-            grade = score["score"]
-            # Document relevant
-            if grade.lower() == "yes":
-                print("---GRADE: DOCUMENT RELEVANT, ALL IS OK---")
-                filtered_docs.append(d)
-            # Document not relevant
-            else:
-                print("---GRADE: DOCUMENT NOT RELEVANT---")
-                # We do not include the document in filtered_docs
-                # We set a flag to indicate that we want to run web search
-                web_search = "Yes"
-                continue
+                grade = score["score"]
+                # Document relevant
+                if grade.lower() == "yes":
+                    print("---GRADE: DOCUMENT RELEVANT, ALL IS OK---")
+                    filtered_docs.append(d)
+                # Document not relevant
+                else:
+                    print("---GRADE: DOCUMENT NOT RELEVANT---")
+                    # We do not include the document in filtered_docs
+                    # We set a flag to indicate that we want to run web search
+                    web_search = "Yes"
+                    continue
+        else:
+            print("Document was not given, maybe because of connection error")
         return {"documents": filtered_docs, "question": question, "web_search": web_search}
 
     def web_search(self, state: AgentState):
@@ -203,11 +183,14 @@ class Agent:
         documents = state["documents"]
 
         # Web search
-        docs = search_01.web_search_tool.invoke({"query": question})
-        combined_results = "\n".join([d["content"] for d in docs])
+        # ToDo: try to make async!
+        docs = search_01.web_search(question)
+        combined_results = "\n".join(
+            [d["content"] for d in docs])  # docs — это список словарей, где каждый словарь имеет ключ "content"
+        # combined_results = docs # Упростим задачу
         web_results = Document(page_content=combined_results)
         if documents is not None:
-            documents.append(web_results)  # Expected type 'str' (matched generic type '_T'), got 'Document' instead
+            documents.append(web_results)
 
         else:
             documents = [web_results]
@@ -252,9 +235,9 @@ class Agent:
         """
 
         print("---ASSESS GRADED DOCUMENTS---")
-        print(state["question"])
+        # print(state["question"])
         web_search = state["web_search"]
-        print(state["documents"])
+        # print(state["documents"])
 
         if web_search == "Yes":
             # All documents have been filtered check_relevance
@@ -290,7 +273,7 @@ class Agent:
         #     {"documents": documents, "generation": generation}
         # )
 
-        score = generate_01.check_hallucinations(documents, generation)
+        score = asyncio.run(generate_01.hallucinations_checker(documents, generation))
         grade = score["score"]
 
         # Check hallucination
@@ -299,7 +282,7 @@ class Agent:
             # Check question-answering
             print("---GRADE GENERATION vs QUESTION---")
             # score = main_generate.answer_grader.invoke({"question": question, "generation": generation})
-            score = generate_01.answer_grader(question, generation)
+            score = asyncio.run(generate_01.answer_grader(question, generation))
             grade = score["score"]
             if grade == "yes":
                 print("---DECISION: GENERATION ADDRESSES QUESTION---")
@@ -336,4 +319,26 @@ def compilation(question: str):
     for output in app.stream(inputs):
         for key, value in output.items():
             pprint(f"Finished running: {key}:")
-            pprint(value["generation"])
+    return value["generation"]
+
+
+def pretty_print_generation(generation_str):
+    try:
+        # Заменяем одинарные кавычки на двойные
+        generation_str = generation_str.replace("'", '"').strip()
+
+        # Парсим строку как JSON
+        generation_dict = json.loads(generation_str)
+
+        # Форматируем JSON строку с отступами
+        formatted_json = json.dumps(generation_dict, indent=4)
+
+        # Используем textwrap для переноса длинных строк
+        wrapped_json = textwrap.fill(formatted_json, width=80, replace_whitespace=False)
+
+        print(wrapped_json)
+
+    except json.JSONDecodeError as e:
+        print("Failed to parse JSON:", e)
+        print("Original string:")
+        print(generation_str)
