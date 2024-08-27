@@ -1,12 +1,10 @@
-# Router
-
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 import config as c  # Here are all ip, llm names and other important things
 
 
 async def route(question: str):
-    """"Routing Questions"""
+    """Routing Questions to range of collections or WebSearch"""
 
     prompt = PromptTemplate(
         template="""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an expert at routing a 
@@ -20,9 +18,3 @@ async def route(question: str):
 
     question_router = prompt | c.llm | JsonOutputParser()
     return await question_router.ainvoke({"question": question})
-
-# question = "llm agent memory"
-# # docs = index.retriever.get_relevant_documents(question)
-# docs = index.retriever.invoke(question)
-# doc_txt = docs[1].page_content
-# print(question_router.invoke({"question": question}))

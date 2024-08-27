@@ -152,7 +152,6 @@ class QueryCollection:
                  embedding_model: str):
         self.chroma_client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
         self.ollama_aclient = AsyncClient(host=ollama_url)
-        # self.collection_name = collection_name
         self.emb_model = embedding_model
         self.doc_txt = None
 
@@ -178,7 +177,6 @@ class QueryCollection:
                 model=embedding_model,
                 keep_alive=-1,
             )
-            print("Ollama timing @@@@ NOW!")
 
             if "embedding" not in response:
                 print("Embedding not found in the response.")
@@ -188,7 +186,6 @@ class QueryCollection:
                 query_embeddings=[response["embedding"]],
                 n_results=1,
             )
-            print("Chroma QUERY timing @@@@ NOW!")
 
             if not results['documents']:
                 print("No documents found in the query results.")

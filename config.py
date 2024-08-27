@@ -19,14 +19,12 @@ emb_model = "llama3.1:8b-instruct-fp16"
 ll_model = "llama3.1:8b-instruct-fp16"
 # ll_model = "llama3.1:latest"
 
-# question1 = "What is agent memory?"
+question1 = "What is agent memory?"
 
 global_cache = InMemoryCache()
 
-llm = ChatOllama(model=ll_model, base_url=ollama_url, cache=True, keep_alive=-1, num_gpu=2, num_thread=24,
-                 num_predict=-1,
-                 format="json",
-                 temperature=0)
+llm = ChatOllama(model=ll_model, base_url=ollama_url, cache=True, keep_alive=-1, num_gpu=2, main_gpu=0,
+                 low_vram=False, num_thread=24, num_predict=-1, format="json", temperature=0)
 llm.cache = global_cache
 
 # urls_rus = [

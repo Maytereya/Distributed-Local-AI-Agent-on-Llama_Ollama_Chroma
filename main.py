@@ -6,7 +6,7 @@ import graph_operator_01
 #  соответствие типов Document -> Str, а так же лишнюю подстановку или пустой вывод (что-то может не работать) ).
 
 
-# ToDo 2. Check connection to services module first that start the agent.
+# ToDo 2. Check connection to services module before start the agent.
 
 q = input("Ваш вопрос: ")
 print("=== AGENT ANSWER ===")
