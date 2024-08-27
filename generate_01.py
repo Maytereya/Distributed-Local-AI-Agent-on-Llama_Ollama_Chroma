@@ -8,7 +8,12 @@ import config as c  # Here are all ip, llm names and other important things
 
 
 async def generate_answer(question: str, documents) -> str:
-    """Generate the answer if the agent"""
+    """
+    Самая медленная процедура!!!
+
+    Generate the answer if the agent
+
+    """
     prompt = PromptTemplate(
         template=f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for question-answering tasks. 
         Use the following pieces of retrieved context to answer the question in string format. If you don't know the answer, just say that you don't know. 
@@ -32,6 +37,33 @@ def format_docs(docs):
         This option need for...
     """
     return "\n\n".join(doc.page_content for doc in docs)
+
+
+async def grade(question: str, document: str):
+    """
+    Медленная процедура!!!
+
+    Grade the relevance of the retrieved document.
+
+    """
+
+    system_prompt = PromptTemplate(
+        template="""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing relevance 
+                        of a retrieved document to a user question. If the document contains keywords related to the user question, 
+                        grade it as relevant. It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n
+                        Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question. \n
+                        Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.
+                         <|eot_id|><|start_header_id|>user<|end_header_id|>
+                        Here is the retrieved document: \n\n {document} \n\n
+                        Here is the user question: {question} \n <|eot_id|><|start_header_id|>assistant<|end_header_id|>
+                        """,
+        input_variables=["question", "document"],
+    )
+    g = system_prompt | c.llm | JsonOutputParser()
+    result = await g.ainvoke(
+        {"question": question, "document": document}
+    )
+    return result
 
 
 async def hallucinations_checker(documents, generation: str):

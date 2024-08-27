@@ -5,22 +5,13 @@
 # Done! It's working.
 import json
 from typing import List, Optional
-
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.chat_models import ChatOllama
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-from bs4 import BeautifulSoup
-from ollama import Client, embed
-import ollama
-
 import uuid
 import chromadb
 import os
 
-import asyncio
 from ollama import AsyncClient
 import config as c  # Here are all ip, llm names and other important things
 
@@ -29,59 +20,6 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 os.environ["LANGCHAIN_API_KEY"] = "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"
 os.environ["TAVILY_API_KEY"] = "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"
-
-# # ToDo: Попробуем поработать с глобальным кешем.
-# from langchain_community.cache import InMemoryCache
-#
-# global_cache = InMemoryCache()
-# ChatOllama.cache = global_cache
-
-
-class Retrieving:
-    """Class that assesses relevance of a retrieved document to a user question using Ollama."""
-
-    def __init__(self, ollama_url: str, embedding_model: str, chroma_host: str, chroma_port: int, llm: str,
-                 collection_name: str):
-        self.embedding_model = embedding_model
-        self.collection_name = collection_name
-        self.ollama_url = ollama_url
-        self.chroma_host = chroma_host
-        self.chroma_port = chroma_port
-        self.ll_model = llm
-
-    async def retrieve_document(self, question: str) -> Optional[List[Document]]:
-        """Retrieve document from collection asynchronously."""
-        qc = QueryCollection(self.ollama_url, self.chroma_host, self.chroma_port, self.collection_name,
-                             self.embedding_model)
-        document = await qc.async_launcher(question=question)
-        return document
-
-    def grade(self, ):
-        """Grade the relevance of the retrieved document."""
-        # llm = ChatOllama(model=self.ll_model, base_url=self.ollama_url, format="json", temperature=0)
-        system_prompt = PromptTemplate(
-            template="""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing relevance 
-                            of a retrieved document to a user question. If the document contains keywords related to the user question, 
-                            grade it as relevant. It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n
-                            Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question. \n
-                            Provide the binary score as a JSON with a single key 'score' and no preamble or explanation.
-                             <|eot_id|><|start_header_id|>user<|end_header_id|>
-                            Here is the retrieved document: \n\n {document} \n\n
-                            Here is the user question: {question} \n <|eot_id|><|start_header_id|>assistant<|end_header_id|>
-                            """,
-            input_variables=["question", "document"],
-        )
-
-        return system_prompt | c.llm | JsonOutputParser()
-
-    async def process(self, question: str) -> Optional[json]:
-        """Orchestrates the retrieval and grading process."""
-        document = await self.retrieve_document(question=question)
-        if document:
-            return self.grade().invoke({"question": question, "document": document})
-        else:
-            print("No document retrieved.")
-            return None
 
 
 class ChromaService:
@@ -203,9 +141,6 @@ class CreateCollection:
                 except Exception as e:
                     print(f"Failed to process document {i}/{total_chunks}: {e}")
 
-                # Optionally add a small sleep to avoid overwhelming the output
-                # await asyncio.sleep(0.01)
-
             print()  # Печатаем пустую строку в конце чтобы счетчик не переносился.
 
         except Exception as e:
@@ -213,15 +148,15 @@ class CreateCollection:
 
 
 class QueryCollection:
-    def __init__(self, ollama_url: str, chroma_host: str, chroma_port: int, collection_name: str,
+    def __init__(self, ollama_url: str, chroma_host: str, chroma_port: int,
                  embedding_model: str):
         self.chroma_client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
         self.ollama_aclient = AsyncClient(host=ollama_url)
-        self.collection_name = collection_name
+        # self.collection_name = collection_name
         self.emb_model = embedding_model
         self.doc_txt = None
 
-    # async def ollama_query_to_collection(self, col_name: str, prompt: str, embedding_model: str) -> str:
+    # ... -> str:
     async def ollama_query_to_collection(self, col_name: str, prompt: str, embedding_model: str) -> Optional[
         List[Document]]:
         print(f"Query to collection: {col_name}")
@@ -266,34 +201,20 @@ class QueryCollection:
                 for doc in sublist
             ]
 
-            # data = results['documents']
-            # data = results["documents"]
             print(f"Ollama embeddings response '{embedding_model}' on question: '{prompt}':")
-            # print(data)
-            # print(" ###### ")
             return documents
 
         except Exception as e:
             print(f"An error occurred during the Ollama embeddings query: {e}")
             return None
 
-    async def async_launcher(self, question: str):
-        """Запуск асинхронного запроса и сохранение результата"""
+    async def async_launcher(self, question: str, collection_name: str, ):
+        """Запуск асинхронного запроса и обработка исключений"""
         try:
             # Выполняем запрос и ожидаем его завершения
-            self.doc_txt = await self.ollama_query_to_collection(self.collection_name, question, self.emb_model)
+            self.doc_txt = await self.ollama_query_to_collection(collection_name, question, self.emb_model)
             return self.doc_txt  # Явно возвращаем результат
         except Exception as e:
             print(f"An error occurred during the async task: {e}")
             return None  # Возвращаем None в случае ошибки
 
-# Пример использования:
-# print(f"this is the {__name__} module")
-# rg = Retrieving(embedding_model=emb_model, ollama_url=ollama_url_in, chroma_host=chroma_host_in,
-#                      chroma_port=chroma_port, llm=ll_model, question=question1,
-#                      collection_name=collect_name)
-#
-# result = asyncio.run(rg.process())
-# print(result)
-
-# Должен сообщить: {'score': 'yes'}

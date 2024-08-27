@@ -3,13 +3,14 @@
 import asyncio
 import json
 import textwrap
-from retrieve_03 import Retrieving
+
 from pprint import pprint
 from dotenv import load_dotenv
 from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 
+from retrieve_03 import QueryCollection
 import generate_01
 import routing_01
 import search_01
@@ -18,8 +19,7 @@ import config as c  # Here are all ip, llm names and other important things
 _ = load_dotenv()
 
 
-# tool = TavilySearchResults(max_results=2)  # increased number of results
-
+# ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
 
 class AgentState(TypedDict):
     # messages: Annotated[list[AnyMessage], operator.add]
@@ -87,10 +87,11 @@ class Agent:
         Returns:
             state (dict): New key added to state, documents, that contains retrieved documents
         """
-        rg = Retrieving(embedding_model=c.emb_model, ollama_url=c.ollama_url, chroma_host=c.chroma_host,
-                        chroma_port=c.chroma_port, llm=c.ll_model,
-                        collection_name=c.collect_name)
-        documents = asyncio.run(rg.retrieve_document(question=state["question"]))
+
+        qc = QueryCollection(ollama_url=c.ollama_url, chroma_host=c.chroma_host, chroma_port=c.chroma_port,
+                             embedding_model=c.emb_model, )
+
+        documents = asyncio.run(qc.async_launcher(question=state["question"], collection_name=c.collect_name))
 
         print("---RETRIEVE FROM CHROMA---")
         question = state["question"]
@@ -118,6 +119,8 @@ class Agent:
 
     def grade_documents(self, state: AgentState):
         """
+        Самая медленная процедура!!!
+
         Determines whether the retrieved documents are relevant to the question
         If any document is not relevant, we will set a flag to run web search
 
@@ -136,20 +139,13 @@ class Agent:
         documents = state["documents"]
 
         # Score each doc
-        rg = Retrieving(embedding_model=c.emb_model, ollama_url=c.ollama_url, chroma_host=c.chroma_host,
-                        chroma_port=c.chroma_port, llm=c.ll_model,
-                        collection_name=c.collect_name)
 
         filtered_docs = []
         web_search = "No"
         if documents is not None:
             for d in documents:
-                # score = index.retrieval_grader.invoke(
-                #     {"question": question, "document": d.page_content}
-                # )
-                score = rg.grade().invoke(
-                    {"question": question, "document": d.page_content}
-                )
+
+                score = asyncio.run(generate_01.grade(question, d.page_content))
 
                 grade = score["score"]
                 # Document relevant
@@ -213,7 +209,7 @@ class Agent:
         question = state["question"]
         print(question)
         # source = routing_01.question_router.invoke({"question": question})
-        source = routing_01.route(question)
+        source = asyncio.run(routing_01.route(question))
         print(source)
         print(source["datasource"])
         if source["datasource"] == "web_search":
@@ -243,7 +239,7 @@ class Agent:
             # All documents have been filtered check_relevance
             # We will re-generate a new query
             print(
-                "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, INCLUDE WEB SEARCH---"
+                "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, START WEB SEARCH---"
             )
             return "websearch"
         else:
@@ -269,10 +265,6 @@ class Agent:
         documents = state["documents"]
         generation = state["generation"]
 
-        # score = main_generate.hallucination_grader.invoke(
-        #     {"documents": documents, "generation": generation}
-        # )
-
         score = asyncio.run(generate_01.hallucinations_checker(documents, generation))
         grade = score["score"]
 
@@ -281,7 +273,7 @@ class Agent:
             print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
             # Check question-answering
             print("---GRADE GENERATION vs QUESTION---")
-            # score = main_generate.answer_grader.invoke({"question": question, "generation": generation})
+
             score = asyncio.run(generate_01.answer_grader(question, generation))
             grade = score["score"]
             if grade == "yes":
@@ -294,21 +286,6 @@ class Agent:
             print("---ОПЯТЬ НИЧЕГО НЕ НАШЕЛ, RE-TRY---")
             return "not supported"
 
-
-# Note, the query was modified to produce more consistent results.
-# Results may vary per run and over time as search information and models change.
-# На базе OPEN AI:
-# query = "Who won the super bowl in 2024? In what state is the winning team headquarters located? \
-# What is the GDP of that state? Answer each question."
-# messages = [HumanMessage(content=query)]
-#
-# model = ChatOpenAI(model="gpt-4o")  # requires more advanced model
-# abot = Agent(model, [tool], system="prompt")
-# result = abot.graph.invoke({"messages": messages})
-#
-# print(result['messages'][-1].content)
-
-# На базе LLAMA3:
 
 # Compile
 def compilation(question: str):

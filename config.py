@@ -14,13 +14,12 @@ chroma_host = chroma_host_out  # Итоговое значение
 
 chroma_port = 8000
 
-# emb_model = "llama3.1:8b-instruct-fp16"
-emb_model = "llama3.1:latest"
-# ll_model = "llama3.1:8b-instruct-fp16"
-ll_model = "llama3.1:latest"
-# question1 = "What is agent memory?"
-# local_llm = "llama3.1:8b-instruct-fp16"
+emb_model = "llama3.1:8b-instruct-fp16"
+# emb_model = "llama3.1:latest"
+ll_model = "llama3.1:8b-instruct-fp16"
+# ll_model = "llama3.1:latest"
 
+# question1 = "What is agent memory?"
 
 global_cache = InMemoryCache()
 
