@@ -1,27 +1,25 @@
 # Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
 # v 2.0
+import asyncio
+import json
+import textwrap
 
 from pprint import pprint
-
 from dotenv import load_dotenv
-
 from langgraph.graph import START, StateGraph, END
-from typing import TypedDict, Annotated, Optional
-import operator
-from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
-from langchain_community.tools.tavily_search import TavilySearchResults
-from typing import List  # используется для типизации списков.
+from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 
-import index
-import main_generate
+from retrieve import QueryCollection
+import generate
 import routing
 import search
+import config as c  # Here are all ip, llm names and other important things
 
 _ = load_dotenv()
 
-tool = TavilySearchResults(max_results=2)  # increased number of results
 
+# ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
 
 class AgentState(TypedDict):
     # messages: Annotated[list[AnyMessage], operator.add]
@@ -89,11 +87,15 @@ class Agent:
         Returns:
             state (dict): New key added to state, documents, that contains retrieved documents
         """
+
+        qc = QueryCollection(ollama_url=c.ollama_url, chroma_host=c.chroma_host, chroma_port=c.chroma_port,
+                             embedding_model=c.emb_model, )
+
+        documents = asyncio.run(qc.async_launcher(question=state["question"], collection_name=c.collect_name))
+
         print("---RETRIEVE FROM CHROMA---")
         question = state["question"]
 
-        # Retrieval
-        documents = index.retriever.invoke(question)
         return {"documents": documents, "question": question}
 
     def generate(self, state: AgentState):
@@ -107,16 +109,18 @@ class Agent:
         Returns:
             state (dict): New key added to state, generation, that contains LLM generation
         """
-        print("---GENERATE answer using RAG---")
+        print("---GENERATE answer using RAG or WEB SEARCH---")
         question = state["question"]
         documents = state["documents"]
-
+        documents = generate_01.format_docs(documents)
         # RAG generation
-        generation = main_generate.rag_chain.invoke({"context": documents, "question": question})
+        generation = asyncio.run(generate_01.generate_answer(documents, question))
         return {"documents": documents, "question": question, "generation": generation}
 
     def grade_documents(self, state: AgentState):
         """
+        Самая медленная процедура!!!
+
         Determines whether the retrieved documents are relevant to the question
         If any document is not relevant, we will set a flag to run web search
 
@@ -135,24 +139,28 @@ class Agent:
         documents = state["documents"]
 
         # Score each doc
+
         filtered_docs = []
         web_search = "No"
-        for d in documents:
-            score = index.retrieval_grader.invoke(
-                {"question": question, "document": d.page_content}
-            )
-            grade = score["score"]
-            # Document relevant
-            if grade.lower() == "yes":
-                print("---GRADE: DOCUMENT RELEVANT, ALL IS OK---")
-                filtered_docs.append(d)
-            # Document not relevant
-            else:
-                print("---GRADE: DOCUMENT NOT RELEVANT---")
-                # We do not include the document in filtered_docs
-                # We set a flag to indicate that we want to run web search
-                web_search = "Yes"
-                continue
+        if documents is not None:
+            for d in documents:
+
+                score = asyncio.run(generate_01.grade(question, d.page_content))
+
+                grade = score["score"]
+                # Document relevant
+                if grade.lower() == "yes":
+                    print("---GRADE: DOCUMENT RELEVANT, ALL IS OK---")
+                    filtered_docs.append(d)
+                # Document not relevant
+                else:
+                    print("---GRADE: DOCUMENT NOT RELEVANT---")
+                    # We do not include the document in filtered_docs
+                    # We set a flag to indicate that we want to run web search
+                    web_search = "Yes"
+                    continue
+        else:
+            print("Document was not given, maybe because of connection error")
         return {"documents": filtered_docs, "question": question, "web_search": web_search}
 
     def web_search(self, state: AgentState):
@@ -171,11 +179,14 @@ class Agent:
         documents = state["documents"]
 
         # Web search
-        docs = search.web_search_tool.invoke({"query": question})
-        web_results = "\n".join([d["content"] for d in docs])
-        web_results = Document(page_content=web_results)
+        # ToDo: try to make async!
+        docs = search_01.web_search(question)
+        combined_results = "\n".join(
+            [d["content"] for d in docs])  # docs — это список словарей, где каждый словарь имеет ключ "content"
+        # combined_results = docs # Упростим задачу
+        web_results = Document(page_content=combined_results)
         if documents is not None:
-            documents.append(web_results)  # Expected type 'str' (matched generic type '_T'), got 'Document' instead
+            documents.append(web_results)
 
         else:
             documents = [web_results]
@@ -197,7 +208,8 @@ class Agent:
         print("---ROUTE QUESTION---")
         question = state["question"]
         print(question)
-        source = routing.question_router.invoke({"question": question})
+        # source = routing_01.question_router.invoke({"question": question})
+        source = asyncio.run(routing_01.route(question))
         print(source)
         print(source["datasource"])
         if source["datasource"] == "web_search":
@@ -219,15 +231,15 @@ class Agent:
         """
 
         print("---ASSESS GRADED DOCUMENTS---")
-        print(state["question"])
+        # print(state["question"])
         web_search = state["web_search"]
-        print(state["documents"])
+        # print(state["documents"])
 
         if web_search == "Yes":
             # All documents have been filtered check_relevance
             # We will re-generate a new query
             print(
-                "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, INCLUDE WEB SEARCH---"
+                "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, START WEB SEARCH---"
             )
             return "websearch"
         else:
@@ -253,9 +265,7 @@ class Agent:
         documents = state["documents"]
         generation = state["generation"]
 
-        score = main_generate.hallucination_grader.invoke(
-            {"documents": documents, "generation": generation}
-        )
+        score = asyncio.run(generate_01.hallucinations_checker(documents, generation))
         grade = score["score"]
 
         # Check hallucination
@@ -263,7 +273,8 @@ class Agent:
             print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
             # Check question-answering
             print("---GRADE GENERATION vs QUESTION---")
-            score = main_generate.answer_grader.invoke({"question": question, "generation": generation})
+
+            score = asyncio.run(generate_01.answer_grader(question, generation))
             grade = score["score"]
             if grade == "yes":
                 print("---DECISION: GENERATION ADDRESSES QUESTION---")
@@ -276,28 +287,35 @@ class Agent:
             return "not supported"
 
 
-# Note, the query was modified to produce more consistent results.
-# Results may vary per run and over time as search information and models change.
-# На базе OPEN AI:
-# query = "Who won the super bowl in 2024? In what state is the winning team headquarters located? \
-# What is the GDP of that state? Answer each question."
-# messages = [HumanMessage(content=query)]
-#
-# model = ChatOpenAI(model="gpt-4o")  # requires more advanced model
-# abot = Agent(model, [tool], system="prompt")
-# result = abot.graph.invoke({"messages": messages})
-#
-# print(result['messages'][-1].content)
-
-# На базе LLAMA3:
-
 # Compile
-agent = Agent()
-app = agent.graph
-inputs = {"question": "Why the sky is blue?"}
-for output in app.stream(inputs):
-    for key, value in output.items():
-        pprint(f"Finished running: {key}:")
-pprint(value["generation"])
+def compilation(question: str):
+    """Compile and run agent answer, based on the question"""
+    agent = Agent()
+    app = agent.graph
+    inputs = {"question": question}
+    for output in app.stream(inputs):
+        for key, value in output.items():
+            pprint(f"Finished running: {key}:")
+    return value["generation"]
 
 
+def pretty_print_generation(generation_str):
+    try:
+        # Заменяем одинарные кавычки на двойные
+        generation_str = generation_str.replace("'", '"').strip()
+
+        # Парсим строку как JSON
+        generation_dict = json.loads(generation_str)
+
+        # Форматируем JSON строку с отступами
+        formatted_json = json.dumps(generation_dict, indent=4)
+
+        # Используем textwrap для переноса длинных строк
+        wrapped_json = textwrap.fill(formatted_json, width=80, replace_whitespace=False)
+
+        print(wrapped_json)
+
+    except json.JSONDecodeError as e:
+        print("Failed to parse JSON:", e)
+        print("Original string:")
+        print(generation_str)
