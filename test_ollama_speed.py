@@ -39,11 +39,12 @@ def rt():
 rt()
 
 # Резюме: через ВПН вообще не работает.
-print("Время выполнения скрипта: 2.31 секунд (Нейро-Пси Мск)")
+print("Время выполнения скрипта: 2.01 секунд (Нейро-Пси Мск)")
 
 
 # Routing test
 def ro_t():
+    print('ChatOllama with minimal number of parameters:')
     start_time = time.time()
     result = asyncio.run(r.route(c.question1))
     end_time = time.time()
@@ -51,32 +52,16 @@ def ro_t():
     print(result)
     # Выводим время выполнения в секундах
     print(f"Время выполнения скрипта: {elapsed_time:.2f} секунд")
+    print('Время выполнения скрипта: 28.65 секунд (Нейро-Пси Мск)')
+    print('Время выполнения скрипта с параметрами: 43.54 секунд (Нейро-Пси Мск)')
 
 
 # ro_t()
 
+
 # Резюме:
 #  Тайминг: Время выполнения скрипта: 43.54 секунд
-# Не приемлемо вообще.
-
-# Пытаемся собрать ту же херхню быстрым способом без выяснения причин того почему ЧатОллама такой медленный
-
-
-async def route(question: str):
-    """Routing Questions to range of collections or WebSearch"""
-
-    prompt = PromptTemplate(
-        template="""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an expert at routing a 
-        user question to a vectorstore or web search. Use the vectorstore for questions on LLM agents, 
-        prompt engineering, and adversarial attacks. You do not need to be stringent with the keywords 
-        in the question related to these topics. Otherwise, use web-search. Give a binary choice 'web_search' 
-        or 'vectorstore' based on the question. Return the JSON with a single key 'datasource' and 
-        no preamble or explanation. Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>""",
-        input_variables=["question"],
-    )
-
-    question_router = prompt | c.llm | JsonOutputParser()
-    return await question_router.ainvoke({"question": question})
+# Сажает время выполнения запроса, следующего после.
 
 
 async def try_client():
@@ -85,12 +70,13 @@ async def try_client():
     opt = Options(temperature=0, num_gpu=2, num_thread=24)
 
     question = c.question1
-    prompt = (f"<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an expert at routing a user "
-              f"question to a vectorstore or web search. Use the vectorstore for questions on LLM agents, "
-              f"prompt engineering, and adversarial attacks. You do not need to be stringent with the keywords in the "
-              f"question related to these topics. Otherwise, use web-search. Give a binary choice 'web_search' or "
-              f"'vectorstore' based on the question. Return the JSON with a single key 'datasource' and no preamble or "
-              f"explanation. Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>")
+    prompt = ("<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an expert at routing a user "
+              "question to a vectorstore or web search. Use the vectorstore for questions on LLM agents, "
+              "prompt engineering, and adversarial attacks. You do not need to be stringent with the keywords in the "
+              "question related to these topics. Otherwise, use web-search. Give a binary choice 'web_search' or "
+              "'vectorstore' based on the question. Return the JSON with a single key 'datasource' and no preamble or "
+              "explanation. Example#1: '{'datasource': 'web_search'}', example#2: '{'datasource': 'vectorstore'}'. "
+              f"Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>")
 
     msg = Message(role='user', content=prompt, )
 
@@ -120,7 +106,7 @@ async def try_client():
     result = ollama_client.generate(
         model=c.ll_model,
         prompt=prompt,
-        format="json",
+        # format="json",
 
     )
 
@@ -139,7 +125,7 @@ async def try_client():
     ames = await ollama_aclient.chat(
         model=c.ll_model,
         messages=[msg],
-        format="json",
+        # format="json",
 
     )
 
@@ -160,7 +146,7 @@ async def try_client():
     mes = ollama_client.chat(
         model=c.ll_model,
         messages=[msg],
-        format="json",
+        # format="json",
 
     )
 
