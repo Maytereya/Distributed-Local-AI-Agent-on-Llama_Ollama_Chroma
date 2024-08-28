@@ -1,4 +1,6 @@
+from langchain.chains.question_answering.map_reduce_prompt import messages
 from sqlalchemy.engine.reflection import cache
+from torch.cuda import temperature
 
 from retrieve_03 import QueryCollection as Qc
 import config as c
@@ -6,7 +8,7 @@ import asyncio
 import time
 import routing_01 as r
 
-from ollama import AsyncClient, Client
+from ollama import AsyncClient, Client, Options, Message
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 
@@ -80,6 +82,8 @@ async def route(question: str):
 async def try_client():
     ollama_aclient = AsyncClient(host=c.ollama_url)
     ollama_client = Client(host=c.ollama_url)
+    opt = Options(temperature=0, num_gpu=2, num_thread=24)
+
     question = c.question1
     prompt = (f"<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an expert at routing a user "
               f"question to a vectorstore or web search. Use the vectorstore for questions on LLM agents, "
@@ -88,36 +92,91 @@ async def try_client():
               f"'vectorstore' based on the question. Return the JSON with a single key 'datasource' and no preamble or "
               f"explanation. Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>")
 
+    msg = Message(role='user', content=prompt, )
+
+    # async & .generate
+    print("async & .generate")
     start_time = time.time()
     aresult = await ollama_aclient.generate(
         model=c.ll_model,
         prompt=prompt,
-        format="json",
+        # format="json",
+        # options=opt,
         keep_alive=-1,
 
     )
 
     print(aresult['response'])
+    print(f"eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
+
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения асинхронного запроса к клиенту: 3.56 секунд (LTE, MSK)')
 
+    # normal & .generate
+    print("normal & .generate")
     start_time = time.time()
     result = ollama_client.generate(
         model=c.ll_model,
         prompt=prompt,
         format="json",
-        keep_alive=-1,
 
     )
 
     print(result['response'])
+
+    print(f"eval_duration: {result['eval_duration'] / 1_000_000_000}")
     end_time = time.time()
     elapsed_time = end_time - start_time
 
     print(f"Время выполнения синхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения синхронного запроса к клиенту: 4.67 секунд (LTE, MSK)')
+
+    # async & .chat function
+    print('async & .chat')
+    start_time = time.time()
+    ames = await ollama_aclient.chat(
+        model=c.ll_model,
+        messages=[msg],
+        format="json",
+
+    )
+
+    content_value = ames['message']['content']
+    eval_duration_value = ames['eval_duration']
+
+    print(f"content: {content_value}")
+    print(f"eval_duration: {eval_duration_value / 1_000_000_000}")
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    print(f"Время выполнения асинхронного запроса к клиенту .chat  : {elapsed_time:.2f} секунд")
+
+    # normal & .chat function
+    print('normal & .chat')
+    start_time = time.time()
+    mes = ollama_client.chat(
+        model=c.ll_model,
+        messages=[msg],
+        format="json",
+
+    )
+
+    content_value = mes['message']['content']
+    eval_duration_value = mes['eval_duration']
+
+    print(f"content: {content_value}")
+    print(f"eval_duration: {eval_duration_value / 1_000_000_000}")
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
+    print(f"Время выполнения синхронного запроса к клиенту .chat  : {elapsed_time:.2f} секунд")
 
 
 asyncio.run(try_client())
 # Время выполнения асинхронного запроса к клиенту: 5.85 секунд (LTE)
 # Время выполнения синхронного запроса к клиенту: 4.65 секунд (LTE)
+# Использование параметра options "сажает" время ответа до 400+ секунд.
