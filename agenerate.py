@@ -1,53 +1,25 @@
-import asyncio
-from langchain_community.llms.ollama import Ollama
-from langchain_core.documents import Document
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-from langchain_community.chat_models import ChatOllama
+from typing import Coroutine
 import config as c  # Here are all ip, llm names and other important things
 import time
-import json_converter as j
 from ollama import AsyncClient, Client, Options, Message
+import json_converter as j
 
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 
-# async def generate_answer1(question: str, documents) -> str:
-#     """
-#     Самая медленная процедура!!!
-#
-#     Generate the answer if the agent
-#
-#     """
-#     prompt = PromptTemplate(
-#         template=f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for question-answering tasks.
-#         Use the following pieces of retrieved context to answer the question in plain text format. If you don't know the answer, just say that you don't know.
-#         Use three sentences maximum and keep the answer concise <|eot_id|><|start_header_id|>user<|end_header_id|>
-#         \n ------- \n
-#         Question: {question}
-#         \n ------- \n
-#         Context: {documents}
-#         \n ------- \n
-#         Answer: <|eot_id|><|start_header_id|>assistant<|end_header_id|>""",
-#         input_variables=["question", "documents"],
-#     )
-#
-#     rag_chain = prompt | c.llm | StrOutputParser()
-#     return await rag_chain.ainvoke({"documents": documents, "question": question})
-
 # Post-processing
 def format_docs(docs):
     """Convert Document to string
-        This option need for...
+        This option need for some functions inside async_graph_operator.py: generate_final
     """
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-async def generate_answer(question: str, documents) -> str:
+async def generate_answer(question: str, documents):
     """
     Generate the answer if the agent
+    Пока рекордсмен по продолжительности генерации...
     """
-
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for '
               'question-answering tasks. Use the following pieces of retrieved context to answer the question in '
               'plain text format. If you do not know the answer, just say that you do not know. Use three sentences '
@@ -62,29 +34,26 @@ async def generate_answer(question: str, documents) -> str:
         prompt=prompt,
         # format="json",
         # options=opt,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
-    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
-    print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
+    print(f"Время выполнения асинхронного запроса к серверу через клиента (генерация ответа): {elapsed_time:.2f} секунд")
+    print('Предыдущий результат: 225.73 секунд')
 
-    print("Route response: " + aresult['response'])
+    print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
+    #
 
     return aresult['response']
 
 
 async def grade(question: str, document: str):
     """
-
     Grade the relevance of the retrieved document.
-
     """
-
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing relevance of a '
               'retrieved document to a user question. If the document contains keywords related to the user question, '
               'grade it as relevant. It does not need to be a stringent test. The goal is to filter out erroneous '
@@ -103,19 +72,20 @@ async def grade(question: str, document: str):
         prompt=prompt,
         # format="json",
         # options=opt,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
-    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
-    print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
+    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
+    print('Предыдущий результат: 40.06 секунд (LTE, MSK)')
 
+    print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
+    #
     json_result = j.str_to_json(aresult['response'])
-    print("Grade response: " + str(json_result))
+    print("Grade retrieved response: " + str(json_result))
 
     return json_result
 
@@ -138,15 +108,15 @@ async def hallucinations_checker(documents, generation):
         prompt=prompt,
         # format="json",
         # options=opt,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
-    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
+    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
+    print('Предыдущий результат: 227.32 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])
@@ -173,15 +143,15 @@ async def answer_grader(question: str, generation):
         prompt=prompt,
         # format="json",
         # options=opt,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
-    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
+    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
+    print('Предыдущий результат: 40.06 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])

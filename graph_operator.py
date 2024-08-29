@@ -76,14 +76,11 @@ class Agent:
 
     # Functions, that are called/invoked:
 
-    def retrieve(self, state: AgentState):
+    async def retrieve(self, state: AgentState):
         """
         Retrieve documents from Chroma VS
-        Эта функция получает документы из векторного хранилища на основе вопроса.
-
         Args:
             state (dict): The current graph state
-
         Returns:
             state (dict): New key added to state, documents, that contains retrieved documents
         """
@@ -91,14 +88,15 @@ class Agent:
         qc = QueryCollection(ollama_url=c.ollama_url, chroma_host=c.chroma_host, chroma_port=c.chroma_port,
                              embedding_model=c.emb_model, )
 
-        documents = asyncio.run(qc.async_launcher(question=state["question"], collection_name=c.collect_name))
+        # documents = asyncio.run(qc.async_launcher(question=state["question"], collection_name=c.collect_name))
+        documents = await (qc.async_launcher(question=state["question"], collection_name=c.collect_name))
 
         print("---RETRIEVE FROM CHROMA---")
         question = state["question"]
 
         return {"documents": documents, "question": question}
 
-    def generate(self, state: AgentState):
+    async def generate(self, state: AgentState):
         """
         Generate answer using RAG on retrieved documents
         Эта функция генерирует ответ, используя ранее полученные документы.
@@ -112,12 +110,12 @@ class Agent:
         print("---GENERATE answer using RAG or WEB SEARCH---")
         question = state["question"]
         documents = state["documents"]
-        documents = generate_01.format_docs(documents)
+        documents = generate.format_docs(documents)
         # RAG generation
-        generation = asyncio.run(generate_01.generate_answer(documents, question))
+        generation = await (generate.generate_answer(documents, question))
         return {"documents": documents, "question": question, "generation": generation}
 
-    def grade_documents(self, state: AgentState):
+    async def grade_documents(self, state: AgentState):
         """
         Самая медленная процедура!!!
 
@@ -145,7 +143,7 @@ class Agent:
         if documents is not None:
             for d in documents:
 
-                score = asyncio.run(generate_01.grade(question, d.page_content))
+                score = asyncio.run(generate.grade(question, d.page_content))
 
                 grade = score["score"]
                 # Document relevant
@@ -180,7 +178,7 @@ class Agent:
 
         # Web search
         # ToDo: try to make async!
-        docs = search_01.web_search(question)
+        docs = search.web_search(question)
         combined_results = "\n".join(
             [d["content"] for d in docs])  # docs — это список словарей, где каждый словарь имеет ключ "content"
         # combined_results = docs # Упростим задачу
@@ -194,7 +192,7 @@ class Agent:
 
     # Условные переходы
 
-    def route_question(self, state: AgentState):
+    async def route_question(self, state: AgentState):
         """
         Эта функция определяет, куда направить вопрос: на веб-поиск или векторное хранилище.
 
@@ -209,7 +207,7 @@ class Agent:
         question = state["question"]
         print(question)
         # source = routing_01.question_router.invoke({"question": question})
-        source = asyncio.run(routing_01.route(question))
+        source = await (routing.route(question))
         print(source)
         print(source["datasource"])
         if source["datasource"] == "web_search":
@@ -249,7 +247,7 @@ class Agent:
 
     # Conditional edge
 
-    def grade_generation_v_documents_and_question(self, state: AgentState):
+    async def grade_generation_v_documents_and_question(self, state: AgentState):
         """
         Эта функция проверяет, основан ли ответ на документах и отвечает ли он на вопрос.
 
@@ -265,7 +263,7 @@ class Agent:
         documents = state["documents"]
         generation = state["generation"]
 
-        score = asyncio.run(generate_01.hallucinations_checker(documents, generation))
+        score = await (generate.hallucinations_checker(documents, generation))
         grade = score["score"]
 
         # Check hallucination
@@ -274,7 +272,7 @@ class Agent:
             # Check question-answering
             print("---GRADE GENERATION vs QUESTION---")
 
-            score = asyncio.run(generate_01.answer_grader(question, generation))
+            score = asyncio.run(generate.answer_grader(question, generation))
             grade = score["score"]
             if grade == "yes":
                 print("---DECISION: GENERATION ADDRESSES QUESTION---")
@@ -283,12 +281,12 @@ class Agent:
                 print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
                 return "not useful"
         else:
-            print("---ОПЯТЬ НИЧЕГО НЕ НАШЕЛ, RE-TRY---")
+            print("---Nothing found again, RE-TRY---")
             return "not supported"
 
 
 # Compile
-def compilation(question: str):
+async def compilation(question: str):
     """Compile and run agent answer, based on the question"""
     agent = Agent()
     app = agent.graph

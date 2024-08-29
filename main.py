@@ -1,4 +1,8 @@
-import graph_operator
+import asyncio
+# import yappi
+
+import async_graph_operator
+import config as c
 
 # TODO 1. Добавить функциональность к строке ввода (чтобы ответ системы инициализировался клавишей ввод) 2. Понять
 #  почему так долго происходит обращение к ollama и устранить причину либо иначе оформить доступ к vectorstore &
@@ -8,6 +12,14 @@ import graph_operator
 
 # ToDo 2. Check connection to services module before start the agent.
 
-q = input("Ваш вопрос: ")
-print("=== AGENT ANSWER ===")
-graph_operator_01.pretty_print_generation(graph_operator_01.compilation(q))
+
+if __name__ == "__main__":
+    question = c.question1
+    # yappi.start()
+    result = asyncio.run(
+        async_graph_operator.compilation(question))  # Запускаем асинхронную функцию через asyncio.run()
+    # yappi.stop()
+    print(result)
+
+    # print("=== YAPPI ===")
+    # print(yappi.get_func_stats().print_all())
