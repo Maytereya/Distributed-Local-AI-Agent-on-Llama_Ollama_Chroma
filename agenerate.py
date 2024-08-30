@@ -1,5 +1,5 @@
 from typing import Coroutine
-import config as c  # Here are all ip, llm names and other important things
+import deprecated_config as c  # Here are all ip, llm names and other important things
 import time
 from ollama import AsyncClient, Client, Options, Message
 import json_converter as j
@@ -41,9 +41,7 @@ async def generate_answer(question: str, documents):
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к серверу через клиента (генерация ответа): {elapsed_time:.2f} секунд")
-    print('Предыдущий результат: 225.73 секунд')
-
+    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
     print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
     #
 
@@ -79,9 +77,7 @@ async def grade(question: str, document: str):
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
-    print('Предыдущий результат: 40.06 секунд (LTE, MSK)')
-
+    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
     #
     json_result = j.str_to_json(aresult['response'])
@@ -115,8 +111,8 @@ async def hallucinations_checker(documents, generation):
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
-    print('Предыдущий результат: 227.32 секунд (LTE, MSK)')
+    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
+    # print('Предыдущий результат: 227.32 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])
@@ -150,8 +146,8 @@ async def answer_grader(question: str, generation):
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
-    print('Предыдущий результат: 40.06 секунд (LTE, MSK)')
+    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
+    # print('Предыдущий результат: 40.06 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])

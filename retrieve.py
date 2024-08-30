@@ -13,7 +13,7 @@ import chromadb
 import os
 
 from ollama import AsyncClient
-import config as c  # Here are all ip, llm names and other important things
+import deprecated_config as c  # Here are all ip, llm names and other important things
 
 # Tracing
 os.environ["LANGCHAIN_TRACING_V2"] = "true"

@@ -1,8 +1,7 @@
 import asyncio
-# import yappi
 
 import async_graph_operator
-import config as c
+import deprecated_config as c
 
 # TODO 1. Добавить функциональность к строке ввода (чтобы ответ системы инициализировался клавишей ввод) 2. Понять
 #  почему так долго происходит обращение к ollama и устранить причину либо иначе оформить доступ к vectorstore &
@@ -15,11 +14,7 @@ import config as c
 
 if __name__ == "__main__":
     question = c.question1
-    # yappi.start()
     result = asyncio.run(
         async_graph_operator.compilation(question))  # Запускаем асинхронную функцию через asyncio.run()
-    # yappi.stop()
-    print(result)
 
-    # print("=== YAPPI ===")
-    # print(yappi.get_func_stats().print_all())
+    print(result)

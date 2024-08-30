@@ -1,6 +1,6 @@
 from typing import Coroutine
 
-import config as c  # Here are all ip, llm names and other important things
+import deprecated_config as c  # Here are all ip, llm names and other important things
 import json_converter as j
 import time
 from ollama import AsyncClient, Client, Options, Message
@@ -17,6 +17,7 @@ async def route(question: str):
               'question related to these topics. Otherwise, use web-search. Give a binary choice "web_search" or '
               '"vectorstore" based on the question. Return the JSON with a single key "datasource" and no preamble or '
               'explanation. Example#1: {"datasource": "web_search"}, example#2: {"datasource": "vectorstore"}. '
+              'Attention: if you want to make a choice "web_search", think twice! Maybe its a mistake.'
               f'Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate
@@ -33,11 +34,10 @@ async def route(question: str):
     end_time = time.time()
     elapsed_time = end_time - start_time
     # Без await не работают!
-    print(f"Время выполнения асинхронного запроса к серверу через клиента: {elapsed_time:.2f} секунд")
-    print('Предыдущий результат: 3.56 секунд (LTE, MSK)')
+    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
+    # print('Предыдущий результат: 3.56 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])  # Carefully check the format
-    # print("Grade response: " + str(json_result))
     print("Router response: " + str(json_result))
     return json_result

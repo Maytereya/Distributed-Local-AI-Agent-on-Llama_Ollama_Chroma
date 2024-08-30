@@ -1,6 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
-import config as c  # Here are all ip, llm names and other important things
+import deprecated_config as c  # Here are all ip, llm names and other important things
 
 from retrieve import QueryCollection as Qc
 import asyncio

@@ -4,7 +4,7 @@ from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_community.chat_models import ChatOllama
-import config as c  # Here are all ip, llm names and other important things
+import deprecated_config as c  # Here are all ip, llm names and other important things
 import time
 import json_converter as j
 from ollama import AsyncClient, Client, Options, Message

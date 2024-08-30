@@ -3,7 +3,7 @@ from sqlalchemy.engine.reflection import cache
 from torch.cuda import temperature
 
 from retrieve import QueryCollection as Qc
-import config as c
+import deprecated_config as c
 import asyncio
 import time
 import routing as r
