@@ -13,7 +13,7 @@ from langchain_core.documents import Document  # представляет док
 from retrieve import QueryCollection
 import generate
 import routing
-import search
+import deprecated_search
 import config as c  # Here are all ip, llm names and other important things
 
 _ = load_dotenv()

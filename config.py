@@ -19,7 +19,8 @@ emb_model = "llama3.1:8b-instruct-fp16"
 ll_model = "llama3.1:8b-instruct-fp16"
 # ll_model = "llama3.1:latest"
 
-question1 = "What is agent memory?"
+# question1 = "What is agent memory?"
+question1 = "What is the weather in Moscow today (30 aug 2024)?"
 
 global_cache = InMemoryCache()
 

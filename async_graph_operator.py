@@ -74,7 +74,7 @@ async def retrieve(state: AgentState):
     return {"documents": documents, "question": question}
 
 
-# not async converted yet
+# not async converted
 def web_search(state: AgentState):
     """
     Эта функция выполняет веб-поиск на основе вопроса и добавляет результаты к документам.
@@ -91,12 +91,17 @@ def web_search(state: AgentState):
     documents = state["documents"]
 
     # Web search
-    # ToDo: try to make async!
+
     docs = search.web_search(question)
-    combined_results = "\n".join(
-        [d["content"] for d in docs])  # docs — это список словарей, где каждый словарь имеет ключ "content"
+    # print("Тип документа поиска: ")
+    # print(type(docs))
+    # print(docs)
+    # combined_results = "\n".join(
+    #     [d["content"] for d in docs]
+    # )  # docs — это список словарей, где каждый словарь имеет ключ "content"
+
     # combined_results = docs # Упростим задачу
-    web_results = Document(page_content=combined_results)
+    web_results = Document(page_content=docs)
     if documents is not None:
         documents.append(web_results)
 
