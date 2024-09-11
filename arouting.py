@@ -1,6 +1,6 @@
 from typing import Coroutine
 
-import deprecated_config as c  # Here are all ip, llm names and other important things
+import config as c  # Here are all ip, llm names and other important things
 import json_converter as j
 import time
 from ollama import AsyncClient, Client, Options, Message

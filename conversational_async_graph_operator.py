@@ -1,5 +1,6 @@
 # Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
 # v 3.0
+import asyncio
 import json
 import textwrap
 from pprint import pprint
@@ -195,7 +196,7 @@ async def generate_final(state: AgentState):
     print("---GENERATE answer using RAG or WEB SEARCH---")
     question = state["question"]
     documents = state["documents"]
-    documents = agenerate.format_docs(documents)
+    documents = agenerate.format_docs(documents)  # Эта функция почему-то не работает!
     # RAG generation
     generation = await agenerate.generate_answer(documents, question)
     return {"documents": documents, "question": question, "generation": generation}
@@ -298,23 +299,45 @@ async def compilation(question: str):
     return value["generation"]
 
 
-def pretty_print_generation(generation_str):
-    try:
-        # Заменяем одинарные кавычки на двойные
-        generation_str = generation_str.replace("'", '"').strip()
+async def agent_conversation(agent: Agent):
+    """Функция для взаимодействия с пользователем в виде чата."""
+    print("Начнем беседу с агентом. Введите ваш вопрос.")
+    while True:
+        question = input("You: ")
+        if question.lower() in ["exit", "quit", "e", "q"]:
+            print("Goodbye!")
+            break
 
-        # Парсим строку как JSON
-        generation_dict = json.loads(generation_str)
+        # Для каждого нового вопроса создаем состояние агента
+        inputs = {"question": question}
 
-        # Форматируем JSON строку с отступами
-        formatted_json = json.dumps(generation_dict, indent=4)
+        # Выполняем агент для каждого вопроса
+        result = await run_agent(agent, inputs)
+        print(f"Agent: {result}")
 
-        # Используем textwrap для переноса длинных строк
-        wrapped_json = textwrap.fill(formatted_json, width=80, replace_whitespace=False)
 
-        print(wrapped_json)
+async def run_agent(agent: Agent, inputs):
+    """Запуск агента для обработки вопроса и получения результата."""
+    app = agent.graph
 
-    except json.JSONDecodeError as e:
-        print("Failed to parse JSON:", e)
-        print("Original string:")
-        print(generation_str)
+    # Асинхронная обработка графа
+    async for output in app.astream(inputs):
+        for key, value in output.items():
+            pprint(f"Finished running node: {key}")
+
+    # Возвращаем сгенерированный ответ
+    return value["generation"]
+
+
+# Основная функция для запуска чат-бота
+async def main():
+    # Создаем агента
+    agent = Agent()
+
+    # Запускаем процесс взаимодействия с агентом
+    await agent_conversation(agent)
+
+
+# Запуск программы
+if __name__ == "__main__":
+    asyncio.run(main())
