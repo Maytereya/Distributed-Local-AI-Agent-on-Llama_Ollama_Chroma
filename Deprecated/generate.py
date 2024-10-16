@@ -1,76 +1,52 @@
-from typing import Coroutine
-
-from langchain_core.documents import Document
-
-import config as c  # Here are all ip, llm names and other important things
+from Deprecated import deprecated_config as c
 import time
-from ollama import AsyncClient, Client, Options, Message
 import json_converter as j
+from ollama import AsyncClient
 
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 
+# async def generate_answer1(question: str, documents) -> str:
+#     """
+#     Самая медленная процедура!!!
+#
+#     Generate the answer if the agent
+#
+#     """
+#     prompt = PromptTemplate(
+#         template=f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for question-answering tasks.
+#         Use the following pieces of retrieved context to answer the question in plain text format. If you don't know the answer, just say that you don't know.
+#         Use three sentences maximum and keep the answer concise <|eot_id|><|start_header_id|>user<|end_header_id|>
+#         \n ------- \n
+#         Question: {question}
+#         \n ------- \n
+#         Context: {documents}
+#         \n ------- \n
+#         Answer: <|eot_id|><|start_header_id|>assistant<|end_header_id|>""",
+#         input_variables=["question", "documents"],
+#     )
+#
+#     rag_chain = prompt | c.llm | StrOutputParser()
+#     return await rag_chain.ainvoke({"documents": documents, "question": question})
+
 # Post-processing
 def format_docs(docs):
     """Convert Document to string
-        This option need for some functions inside async_graph_operator.py: generate_final
+        This option need for...
     """
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-async def chat(question: str, history=None):
-    """
-Just chat with the short-term history
-    """
-    # if history is None:
-    #     history = [{"role": "user", "content": "no history"}]
-    if history is None:
-        # Память!
-        history = []
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for '
-              'question-answering tasks. Answer the question in '
-              'plain text format. If you do not know the answer, just say that you do not know. Use three sentences '
-              'maximum and keep the answer concise. History of previous conversations should be referenced, '
-              f'if applicable, and included in the answer. <|eot_id|><|start_header_id|>user<|end_header_id|> '
-              f'Question: {question}. History of previous conversations: {history} Answer: '
-              '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
-
-    # async & .generate
-    start_time = time.time()
-    aresult = await ollama_aclient.generate(
-        model=c.ll_model,
-        prompt=prompt,
-        # format="json",
-        # options=opt,
-        # keep_alive=-1,
-
-    )
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-
-    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
-    print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
-    #
-
-    return aresult['response']
-
-
-async def generate_answer(question: str, documents: list[Document], history=None):
+async def generate_answer(question: str, documents) -> str:
     """
     Generate the answer if the agent
-    Пока рекордсмен по продолжительности генерации...
     """
-    # if history is None:
-    #     history = [{"role": "user", "content": "no history"}]
-    if history is None:
-        history = []
+
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for '
               'question-answering tasks. Use the following pieces of retrieved context to answer the question in '
               'plain text format. If you do not know the answer, just say that you do not know. Use three sentences '
-              'maximum and keep the answer concise. History of previous conversations should be referenced, '
-              f'if applicable, and included in the answer.  <|eot_id|><|start_header_id|>user<|end_header_id|> '
-              f'Question: {question}. Context: {documents}. History here: {history} Answer: '
+              'maximum and keep the answer concise <|eot_id|><|start_header_id|>user<|end_header_id|> '
+              f'Question: {question}. Context: {documents}. Answer: '
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate
@@ -80,24 +56,29 @@ async def generate_answer(question: str, documents: list[Document], history=None
         prompt=prompt,
         # format="json",
         # options=opt,
-        # keep_alive=-1,
+        keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
-    print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
-    #
+    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
+    print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
+
+    print("Route response: " + aresult['response'])
 
     return aresult['response']
 
 
 async def grade(question: str, document: str):
     """
+
     Grade the relevance of the retrieved document.
+
     """
+
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing relevance of a '
               'retrieved document to a user question. If the document contains keywords related to the user question, '
               'grade it as relevant. It does not need to be a stringent test. The goal is to filter out erroneous '
@@ -116,18 +97,19 @@ async def grade(question: str, document: str):
         prompt=prompt,
         # format="json",
         # options=opt,
-        # keep_alive=-1,
+        keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
+    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
-    #
+
     json_result = j.str_to_json(aresult['response'])
-    print("Grade retrieved response: " + str(json_result))
+    print("Grade response: " + str(json_result))
 
     return json_result
 
@@ -150,15 +132,15 @@ async def hallucinations_checker(documents, generation):
         prompt=prompt,
         # format="json",
         # options=opt,
-        # keep_alive=-1,
+        keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
-    # print('Предыдущий результат: 227.32 секунд (LTE, MSK)')
+    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])
@@ -185,14 +167,15 @@ async def answer_grader(question: str, generation):
         prompt=prompt,
         # format="json",
         # options=opt,
-        # keep_alive=-1,
+        keep_alive=-1,
 
     )
 
     end_time = time.time()
     elapsed_time = end_time - start_time
 
-    print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
+    print(f"Время выполнения асинхронного запроса к клиенту: {elapsed_time:.2f} секунд")
+    print('Время выполнения асинхронного запроса к клиенту: ____ секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
 
     json_result = j.str_to_json(aresult['response'])

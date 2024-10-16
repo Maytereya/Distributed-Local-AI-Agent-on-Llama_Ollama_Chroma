@@ -18,10 +18,11 @@ async def route(question: str):
 
     # Вывод
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
-              f'Today date and time: {formatted_datetime} You are an expert at routing a user '
+              f'Today date and time: {formatted_datetime} '
+              f'You are an expert at routing a user '
               'question to a vectorstore, chat with you or web search. '
-              'Use the vectorstore for questions on LLM agents, '
-              'prompt engineering, and adversarial attacks. '
+              'Use the vectorstore for questions on medicine, medical service, side effects in psychiatry, '
+              'psychopharmacology and psychiatric treatment. '
               'If you are asked questions about today '
               'events and what will happen in the next 3 days, select web-search. '
               'If the questions are about previous questions select chat.'
@@ -34,6 +35,8 @@ async def route(question: str):
               'example#3: {"datasource": "chat"}.'
               'Attention: if you want to make a choice "web_search", think twice! Maybe its a mistake.'
               f'Question to route: {question} <|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+
+
 
     # async & .generate
     start_time = time.time()

@@ -9,9 +9,9 @@ import time
 _ = load_dotenv()
 
 
-def web_search(question: str, outputs_number: int = 1):
+def web_search(question: str, outputs_number: int = 2):
     """
-        Не работает так же как и синхронная функция.
+        Не работает так же как синхронная функция.
     Есть предположение, что выдает строку вместо списка словарей,
     где каждый словарь имеет ключ 'content'
     """

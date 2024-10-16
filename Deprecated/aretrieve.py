@@ -11,15 +11,15 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import uuid
 import chromadb
 import os
+import time
 
 from ollama import AsyncClient
-import deprecated_config as c  # Here are all ip, llm names and other important things
+# import config as c  # Here are all ip, llm names and other important things
 
 # Tracing
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 os.environ["LANGCHAIN_API_KEY"] = "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"
-os.environ["TAVILY_API_KEY"] = "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"
 
 
 class ChromaService:
@@ -60,7 +60,7 @@ class CreateCollection:
     def __init__(self, ollama_url: str, chroma_host: str, chroma_port: int, embedding_model: str, collection: str,
                  add_urls: List[str] = None):
         self.add_urls = add_urls if add_urls is not None else []
-        self.chroma_client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        self.chroma_client = chromadb.HttpClient(host=chroma_host, port=2)
         self.ollama_aclient = AsyncClient(host=ollama_url)
         self.emb_model = embedding_model
         self.collection = collection
@@ -200,6 +200,7 @@ class QueryCollection:
             ]
 
             print(f"Ollama embeddings response '{embedding_model}' on question: '{prompt}':")
+            # print(results)
             return documents
 
         except Exception as e:
@@ -210,9 +211,13 @@ class QueryCollection:
         """Запуск асинхронного запроса и обработка исключений"""
         try:
             # Выполняем запрос и ожидаем его завершения
+            start_time = time.time()
             self.doc_txt = await self.ollama_query_to_collection(collection_name, question, self.emb_model)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(
+                f"Query to collection time: {elapsed_time:.2f} sec")
             return self.doc_txt  # Явно возвращаем результат
         except Exception as e:
             print(f"An error occurred during the async task in ollama_query_to_collection: {e}")
             return None  # Возвращаем None в случае ошибки
-

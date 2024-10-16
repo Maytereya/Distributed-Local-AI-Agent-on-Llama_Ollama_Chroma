@@ -10,11 +10,11 @@ from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 
+import search
 from retrieve import QueryCollection
 import generate
 import routing
-import deprecated_search
-import deprecated_config as c  # Here are all ip, llm names and other important things
+import config as c  # Here are all ip, llm names and other important things
 
 _ = load_dotenv()
 

@@ -1,6 +1,6 @@
 # app.py
 from quart import Quart, render_template, request, session
-from conversational_async_graph_operator import Agent, run_agent  # Импортируем агента
+from Deprecated.conversational_async_graph_operator import Agent, run_agent  # Импортируем агента
 
 app = Quart(__name__)
 app.secret_key = '3380841777'  # Для обеспечения безопасности сессий

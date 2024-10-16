@@ -1,9 +1,6 @@
 import asyncio
-import ollama
-from langchain_community.llms.ollama import Ollama
-from sympy.codegen import Print
 
-import async_graph_operator
+from Deprecated import async_graph_operator
 import config as c
 
 # TODO 1. Добавить функциональность к строке ввода (чтобы ответ системы инициализировался клавишей ввод) 2. Понять

@@ -3,7 +3,7 @@ import configparser
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-environment = 'DEVELOPMENT'  # OR 'PRODUCTION'
+environment = 'DEVELOPMENT' # OR 'PRODUCTION'
 
 ollama_url = config[environment]['ollama_url']
 chroma_host = config[environment]['chroma_host']

@@ -1,20 +1,38 @@
 # Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
-# v 3.0
-import json
-import textwrap
+# v 5.1
+# Теперь это чат с логикой агента, расширенной на просто чат. Есть память в виде переменной history[]
+# Но память langGraph в этой реализации не используется.
+# Существенное изменение - добавление нативного ретривера поверх векторной базы данных Chroma DB
+# ollama embeddings в данной конфигурации не используется.
+
+import asyncio
+import copy
 from pprint import pprint
 from dotenv import load_dotenv
 from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
+import warnings
 
-from aretrieve import QueryCollection
-import agenerate
-import arouting
+# R Project modules:
+import generate2 as generate
+import check
+import routing2 as route
+import aretrieve2 as retrieve
 import search
 import config as c  # Here are all ip, llm names and other important things
 
+warnings.filterwarnings(
+    "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
+)
+
 _ = load_dotenv()
+
+import os
+
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 
 
 # ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
@@ -24,14 +42,15 @@ class AgentState(TypedDict):
     question: str
     generation: str
     web_search: str
-    # documents: List[str]  #Возможно ошибочно
+    history: list
     documents: Optional[List[Document]]  # С поправкой на ошибку несоответствия типа в модуле web_search
 
 
 # Входная функция !
 async def route_question(state: AgentState):
     """
-    Эта функция определяет, куда направить вопрос: на веб-поиск или векторное хранилище.
+    Эта функция определяет, куда направить вопрос: на веб-поиск,
+    векторное хранилище, в чат с памятью или окончание сессии (выход).
 
     Args:
         state (dict): The current graph state
@@ -42,33 +61,66 @@ async def route_question(state: AgentState):
 
     print("---ROUTE QUESTION---")
     question = state["question"]
-    print(question)
+    print("Вопрос от пользователя: ", question)
 
-    source = await arouting.route(question)
+    source = await route.route(question)
 
     if source["datasource"] == "web_search":
         print("---ROUTE QUESTION TO WEB SEARCH---")
         return "websearch"
+
     elif source["datasource"] == "vectorstore":
-        print("---ROUTE QUESTION TO RAG---")
+        print("---ROUTE QUESTION TO RAG CHAIN---")
         return "vectorstore"
+
+    elif source["datasource"] == "chat":
+        print("---ROUTE QUESTION TO CHAT WITH MEMORY---")
+        return "chat"
+
+    elif source["datasource"] == "exit":
+        print("---ROUTE TO TERMINATE THE SESSION---")
+        return "exit"
 
 
 # !
-async def retrieve(state: AgentState):
+async def retrieve_vs(state: AgentState):
     """
-    Retrieve documents from ChromaDB
+    Retrieve documents from Chroma Vector Store
     Args:
         state (dict): The current graph state
     Returns:
         state (dict): New key added to state, documents, that contains retrieved documents
     """
-    qc = QueryCollection(ollama_url=c.ollama_url, chroma_host=c.chroma_host, chroma_port=c.chroma_port,
-                         embedding_model=c.emb_model, )
 
-    documents = await (qc.async_launcher(question=state["question"], collection_name=c.collect_name))
+    # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
+
+    documents = retrieve.vs_query(existed_collection=c.collect_name, question=state["question"], search_type="mmr", k=2)
+    print("---RETRIEVE FROM CHROMA Vector Store---")
+    question = state["question"]
+    print("Вопрос: ", state["question"])
+    for document in documents:
+        print(document.page_content)
+
+    return {"documents": documents, "question": question}
+
+
+async def retrieve_db(state: AgentState):
+    """
+    Retrieve documents from Chroma Database
+    Args:
+        state (dict): The current graph state
+    Returns:
+        state (dict): New key added to state, documents, that contains retrieved documents
+    """
+
+    # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
+
+    documents = retrieve.query_collection(existed_collection=c.collect_name, question=state["question"])
     print("---RETRIEVE FROM CHROMA DB---")
     question = state["question"]
+    print("Вопрос: ", state["question"])
+    for document in documents:
+        print(document.page_content)
 
     return {"documents": documents, "question": question}
 
@@ -86,26 +138,21 @@ def web_search(state: AgentState):
     """
 
     print("---TAVILY WEB SEARCH---")
+
     question = state["question"]
     documents = state["documents"]
 
-    # Web search
-
     docs = search.web_search(question)
-    # print("Тип документа поиска: ")
-    # print(type(docs))
-    # print(docs)
-    # combined_results = "\n".join(
-    #     [d["content"] for d in docs]
-    # )  # docs — это список словарей, где каждый словарь имеет ключ "content"
 
-    # combined_results = docs # Упростим задачу
     web_results = Document(page_content=docs)
     if documents is not None:
         documents.append(web_results)
-
     else:
         documents = [web_results]
+
+    print("Вопрос: ", state["question"])
+    print("Ответ: ", documents)
+
     return {"documents": documents, "question": question}
 
 
@@ -133,7 +180,7 @@ async def grade_documents(state: AgentState):
     if documents is not None:
         for d in documents:
 
-            score = await agenerate.grade(question, d.page_content)
+            score = await check.grade(question=question, document=d.page_content)
 
             grade = score["score"]
             # Document relevant
@@ -195,10 +242,39 @@ async def generate_final(state: AgentState):
     print("---GENERATE answer using RAG or WEB SEARCH---")
     question = state["question"]
     documents = state["documents"]
-    documents = agenerate.format_docs(documents)
-    # RAG generation
-    generation = await agenerate.generate_answer(documents, question)
+    generation: list[Document] = []
+    try:
+        # documents = memory_agenerate.format_docs(documents)  # Эта функция почему-то не работает!
+        # history = state["history"]
+        # print(f'HISTORY: {history}')
+        # RAG generation
+        generation = await generate.generate_answer(question, documents)
+    except Exception as e:
+        print("Ошибка получения данных: ", e)
+
     return {"documents": documents, "question": question, "generation": generation}
+
+
+async def chat(state: AgentState):
+    """
+    Generate chat
+
+    Args:
+        state (dict): The current graph state
+
+    Returns:
+        state (dict): New key added to state, generation, that contains LLM generation
+    """
+    print("---CHAT WITH U---")
+    question = state["question"]
+    history = state["history"]
+
+    # Потенциальное избавление от циклических ссылок
+    history_copy = copy.deepcopy(history)
+
+    # chat generation
+    generation = await generate.chat(question, history_copy)
+    return {"question": question, "generation": generation, "history": history}
 
 
 # !
@@ -214,12 +290,17 @@ async def grade_generation_v_documents_and_question(state: AgentState):
     """
 
     print("---CHECK HALLUCINATIONS---")
+
     question = state["question"]
     documents = state["documents"]
     generation = state["generation"]
-
-    score = await agenerate.hallucinations_checker(documents, generation)
-    grade = score["score"]
+    # history = state["history"]
+    grade: str = "no"
+    try:
+        score = await check.hallucinations_checker(documents, generation)
+        grade = score["score"]
+    except Exception as e:
+        print("Ошибка получения данных: ", e)
 
     # Check hallucination
     if grade == "yes":
@@ -227,7 +308,7 @@ async def grade_generation_v_documents_and_question(state: AgentState):
         # Check question-answering
         print("---GRADE GENERATION vs QUESTION---")
 
-        score = await agenerate.answer_grader(question, generation)
+        score = await check.answer_grader(question, generation)
         grade = score["score"]
         if grade == "yes":
             print("---DECISION: GENERATION ADDRESSES QUESTION---")
@@ -247,9 +328,10 @@ class Agent:
         graph = StateGraph(AgentState)
 
         graph.add_node("websearch", web_search)  # web search
-        graph.add_node("retrieve", retrieve)  # retrieve
+        graph.add_node("retrieve", retrieve_vs)  # retrieve
         graph.add_node("grade_documents", grade_documents)  # grade documents
         graph.add_node("generate", generate_final)  # generate
+        graph.add_node("chat", chat)  # chat
 
         graph.add_conditional_edges(
             START,
@@ -257,6 +339,7 @@ class Agent:
             {
                 "websearch": "websearch",
                 "vectorstore": "retrieve",
+                "chat": "chat",
             },
         )
 
@@ -281,40 +364,59 @@ class Agent:
                 "not useful": "websearch",
             },
         )
+        graph.add_edge("chat", END)
 
         self.graph = graph.compile()  #
 
 
-# Compile
-async def compilation(question: str):
-    """Compile and run agent answer, based on the question"""
-    value = None
-    agent = Agent()
+async def agent_conversation(agent: Agent):
+    """Функция для взаимодействия с пользователем в виде чата."""
+
+    # Инициализация пустой истории
+    history = []
+
+    print("Начнем беседу с агентом. Введите ваш вопрос.")
+    while True:
+        question = input("You: ")
+        if question.lower() in ["exit", "quit", "e", "q"]:
+            print("Goodbye!")
+            break
+        # Добавляем новый вопрос в историю
+        history.append({"role": "user", "content": question})
+
+        # Для каждого нового вопроса создаем состояние агента
+        inputs = {"question": question, "history": history}
+
+        # Выполняем агент для каждого вопроса
+        result = await run_agent(agent, inputs)
+
+        # Добавляем ответ агента в историю
+        history.append({"role": "assistant", "content": result})
+
+        print(f"Agent: {result}")
+
+
+async def run_agent(agent: Agent, inputs):
+    """Запуск агента для обработки вопроса и получения результата."""
     app = agent.graph
-    inputs = {"question": question}
+
+    # Асинхронная обработка графа
     async for output in app.astream(inputs):
         for key, value in output.items():
-            pprint(f"Finished running: {key}:")
+            pprint(f"Finished running node: {key}")
+    # Возвращаем сгенерированный ответ
     return value["generation"]
 
 
-def pretty_print_generation(generation_str):
-    try:
-        # Заменяем одинарные кавычки на двойные
-        generation_str = generation_str.replace("'", '"').strip()
+# Основная функция для запуска чат-бота
+async def main():
+    # Создаем агента
+    agent = Agent()
 
-        # Парсим строку как JSON
-        generation_dict = json.loads(generation_str)
+    # Запускаем процесс взаимодействия с агентом
+    await agent_conversation(agent)
 
-        # Форматируем JSON строку с отступами
-        formatted_json = json.dumps(generation_dict, indent=4)
 
-        # Используем textwrap для переноса длинных строк
-        wrapped_json = textwrap.fill(formatted_json, width=80, replace_whitespace=False)
-
-        print(wrapped_json)
-
-    except json.JSONDecodeError as e:
-        print("Failed to parse JSON:", e)
-        print("Original string:")
-        print(generation_str)
+# Запуск программы
+if __name__ == "__main__":
+    asyncio.run(main())

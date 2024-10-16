@@ -1,12 +1,8 @@
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-import deprecated_config as c  # Here are all ip, llm names and other important things
+from Deprecated import deprecated_config as c
 
-from retrieve import QueryCollection as Qc
-import asyncio
 import time
 import json_converter as j
-from ollama import AsyncClient, Client, Options, Message
+from ollama import AsyncClient
 
 
 # async def route1(question: str):
