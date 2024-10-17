@@ -19,21 +19,24 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-async def chat(question: str, history=None):
+async def chat(question: str, history: list = None):
     """
-Just chat with the short-term history
+    Just chat with the short-term history
     """
-    # if history is None:
-    #     history = [{"role": "user", "content": "no history"}]
+
     if history is None:
-        # Память!
         history = []
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for '
-              'question-answering tasks. Answer the question in '
-              'plain text format. If you do not know the answer, just say that you do not know. Use three sentences '
-              'maximum and keep the answer concise. History of previous conversations should be referenced, '
-              f'if applicable, and included in the answer. <|eot_id|><|start_header_id|>user<|end_header_id|> '
-              f'Question: {question}. History of previous conversations: {history} Answer: '
+
+    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
+              'You are an assistant for question-answering tasks. Answer the question in plain text format. '
+              'If you do not know the answer, simply state that you do not know. '
+              'Use a maximum of five sentences and keep your answer concise. '
+              'If relevant, reference the history of previous conversations in your answer. '
+              'If needed, reason with the user about information found in the conversation history to provide clarity or address follow-up questions. '
+              '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+              f'Question: {question}. \n\n'
+              f'History of previous conversations: {history} \n\n'
+              'Answer: '
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate
@@ -57,21 +60,24 @@ Just chat with the short-term history
     return aresult['response']
 
 
-async def generate_answer(question: str, documents: list[Document], history=None) -> list[Document]:
+async def generate_answer(question: str, documents: list[Document], history: list = None) -> list[Document]:
     """
-    Generate the answer if the agent
-    Пока рекордсмен по продолжительности генерации...
+    Generate the final answer of the agent in a question-answering cycle.
     """
-    # if history is None:
-    #     history = [{"role": "user", "content": "no history"}]
     if history is None:
         history = []
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are an assistant for '
-              'question-answering tasks. Use the following pieces of retrieved context to answer the question in '
-              'plain text format. If you do not know the answer, just say that you do not know. Use three sentences '
-              'maximum and keep the answer concise. History of previous conversations should be referenced, '
-              f'if applicable, and included in the answer.  <|eot_id|><|start_header_id|>user<|end_header_id|> '
-              f'Question: {question}. Context: {documents}. History here: {history} Answer: '
+
+    prompt = (f'<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
+              'You are an assistant tasked with answering user questions based on the provided context. '
+              'Use the following retrieved information to generate a concise, plain-text response. '
+              'If you do not know the answer, simply state that you do not know. '
+              'Limit your response to a maximum of six sentences. '
+              'If previous conversation history exists, reference it in your answer. If there is no history, you may ignore it. '
+              '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+              f'Question: {question}. \n\n'
+              f'Context: {documents}. \n\n'
+              f'History of previous conversations (if available): {history} \n\n'
+              'Answer: '
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate

@@ -124,6 +124,26 @@ async def retrieve_db(state: AgentState):
 
     return {"documents": documents, "question": question}
 
+async def retrieve_db_sbert(state: AgentState):
+    """
+    Retrieve documents from Chroma Database using SBERT model
+    Args:
+        state (dict): The current graph state
+    Returns:
+        state (dict): New key added to state, documents, that contains retrieved documents
+    """
+
+    # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
+
+    documents = retrieve.query_collection(existed_collection=c.collect_name, question=state["question"], model="sbert")
+    print("---RETRIEVE FROM CHROMA DB---")
+    question = state["question"]
+    print("Вопрос: ", state["question"])
+    for document in documents:
+        print(document.page_content)
+
+    return {"documents": documents, "question": question}
+
 
 # not async converted
 def web_search(state: AgentState):
@@ -243,16 +263,22 @@ async def generate_final(state: AgentState):
     question = state["question"]
     documents = state["documents"]
     generation: list[Document] = []
+    history = state["history"]
+
+    # Потенциальное избавление от циклических ссылок
+    history_copy = copy.deepcopy(history)
+
     try:
-        # documents = memory_agenerate.format_docs(documents)  # Эта функция почему-то не работает!
+        # documents = generate.format_docs(documents)  # Эта функция почему-то не работает!
         # history = state["history"]
-        # print(f'HISTORY: {history}')
-        # RAG generation
-        generation = await generate.generate_answer(question, documents)
+        # print(f' HISTORY: {history}')
+
+        # generation based on RAG or WEB_Search tool
+        generation = await generate.generate_answer(question, documents, history_copy)
     except Exception as e:
         print("Ошибка получения данных: ", e)
 
-    return {"documents": documents, "question": question, "generation": generation}
+    return {"documents": documents, "question": question, "generation": generation, "history": history}
 
 
 async def chat(state: AgentState):
@@ -328,7 +354,9 @@ class Agent:
         graph = StateGraph(AgentState)
 
         graph.add_node("websearch", web_search)  # web search
-        graph.add_node("retrieve", retrieve_vs)  # retrieve
+        graph.add_node("retrieve_vs", retrieve_vs)  # retrieve from Chroma vector store mmr only
+        graph.add_node("retrieve_db", retrieve_db)  # retrieve from Chroma DB vector search
+        graph.add_node("retrieve_db_sbert", retrieve_db_sbert) # retrieve from Chroma DB vector search with sbert model
         graph.add_node("grade_documents", grade_documents)  # grade documents
         graph.add_node("generate", generate_final)  # generate
         graph.add_node("chat", chat)  # chat
