@@ -17,6 +17,16 @@ from typing import List
 import warnings
 import config as c  # Here are all ip, llm names and other important things
 
+
+# import chromadb.utils.embedding_functions as embedding_functions
+
+import chromadb.utils.embedding_functions as embedding_functions
+from InstructorEmbedding import INSTRUCTOR
+model = INSTRUCTOR('hkunlp/instructor-large')
+
+# ef = embedding_functions.InstructorEmbeddingFunction(
+# model_name="hkunlp/instructor-xl", device="cuda")
+
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
 )
@@ -37,8 +47,9 @@ file_path = "Upload/"
 # collection_name: str = "rag-chr-pdf-side-eff-cosine-LaBSE-en-ru"
 # collection_name: str = "txt-side-eff-cosine-LaBSE-en-ru"
 # collection_name: str = "txt-side-eff-cosine-MiniLM-L12-v2"
-# collection_name: str = "txt-side-eff-cosine-distiluse-base-multilingual-cased-v1"
-
+# collection_name: str = "23_10_2024_allenai-specter_pdf"
+collection_name: str = "23_10_2024_distiluse_pdf"
+# collection_name: str = "txt-side-eff-cosine-sbert_large_nlu_ru"
 # ini the chroma client
 chroma_client = chromadb.HttpClient(host=c.chroma_host, port=c.chroma_port)
 
@@ -76,7 +87,7 @@ def choose_model(model: Literal["distiluse", "sbert", "default"] = "default",
     model_mapping = {
         "distiluse": "sentence-transformers/distiluse-base-multilingual-cased-v1",
         "sbert": "ai-forever/sbert_large_nlu_ru",
-        "default": "sentence-transformers/distiluse-base-multilingual-cased-v1"
+        "default": "sentence-transformers/allenai-specter"
     }
 
     selected_model_name = model_mapping.get(model, model_mapping["default"])
@@ -101,6 +112,19 @@ class ChromaService:
     def reset_chroma(self):
         self.chroma_client.reset()
         self.chroma_client.clear_system_cache()
+
+    def display_collections(self):
+        """
+        Выводит список коллекций на экран
+        :return: List of collections
+        """
+        list_col = self.chroma_client.list_collections()
+        for col in list_col:
+            # Преобразуем объект в строку и находим значение name
+            name_part = str(col).split(", name=")[1].rstrip(")")
+            print(name_part)
+            # print(col)
+            print("=============")
 
     def preconditioning(self, target_name: str):
         """Подготавливаем условия для создания и использования коллекций. В данном случае, удаляем коллекцию,
@@ -199,7 +223,7 @@ def web_txt_splitter(add_urls) -> List[Document]:
     return doc_splits
 
 
-def txt_loader(path: str) -> List[Document]:
+def txt_loader(path: str = "Upload/") -> List[Document]:
     """
     Load & Split the txt documents into list of Document
 
@@ -207,7 +231,7 @@ def txt_loader(path: str) -> List[Document]:
     split_docs: List[Document] = []
     text_loader_kwargs = {"autodetect_encoding": True}
 
-    loader = DirectoryLoader("Upload/", glob="**/*.txt", loader_cls=TextLoader,
+    loader = DirectoryLoader(path=path, glob="**/*.txt", loader_cls=TextLoader,
                              show_progress=True,
                              loader_kwargs=text_loader_kwargs)
     docs = loader.load()
@@ -364,6 +388,7 @@ def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], a
         print(f"An error occurred while adding data: {e}")
 
 
+# :: Chroma DB ::
 def query_collection(existed_collection, question: str, n_results: int = 2,
                      model: Literal["distiluse", "sbert", "default"] = "default") -> Optional[
     List[Document]]:
@@ -373,18 +398,18 @@ def query_collection(existed_collection, question: str, n_results: int = 2,
     collection = chroma_client.get_collection(name=existed_collection,
                                               embedding_function=embedding_function)
 
-    print(f"Ответ на вопрос: '{question}'")
+    # print(f"Ответ на вопрос: '{question}'")
     result = collection.query(
         query_texts=question,
         n_results=n_results,
         # where={"metadata_field": "is_equal_to_this"},
-        # where_document={"$contains": question}
+        where_document={"$contains": "Клозапин"}
     )
 
-    print("QUERY RESPONSE (def query_collection): ")
-    print()
-    print(f"Documents:  {result["documents"][0]}")
-    print(f"Distances:  {result["distances"][0]}")
+    # print("QUERY RESPONSE (def query_collection): ")
+    # print()
+    # print(f"Documents:  {result["documents"][0]}")
+    # print(f"Distances:  {result["distances"][0]}")
     # print(f"Metadata:  {result["metadatas"][0][0]}")
 
     documents = [
@@ -419,7 +444,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
     :return: Список документов, полученных в результате поиска.
     :raises Exception: Если возникает ошибка во время выполнения поиска.
     """
-    print(f"Ответ на вопрос: {question}")
+    # print(f"Ответ на вопрос: {question}")
 
     documents: List[Document] = []
 
@@ -453,7 +478,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
                 filter=filters,
             )
             print("search_type = similarity")
-            print_results(documents)
+            # print_results(documents)
 
         elif search_type == "simil_score":
             results = vector_store_from_client.similarity_search_with_score(
@@ -462,7 +487,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
                 filter=filters,
             )
             print("search_type = similarity with score")
-            print_results(results)
+            # print_results(results)
             documents = [
                 Document(page_content=doc.page_content, metadata=score)
                 for doc, score in results
@@ -473,15 +498,15 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
                 embedding=embedding_function.embed_query(question), k=k
             )
             print("search_type = search by vector")
-            print_results(documents)
+            # print_results(documents)
 
         elif search_type == "mmr":
             retriever = vector_store_from_client.as_retriever(
-                search_type="mmr", search_kwargs={"k": k, "fetch_k": 5}
+                search_type="mmr", search_kwargs={"k": k, "fetch_k": 10}
             )
             print("search_type = mmr")
             documents = retriever.invoke(question, filter=filters)
-            print_results(documents)
+            # print_results(documents)
 
     except Exception as e:
         print(f"An error occurred while searching vector store (using def vs_query()): {e}")
@@ -492,18 +517,31 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
 # Тестирование
 if __name__ == '__main__':
     print(':: TESTING ::')
-    print("Preparing an environment for working with collections...")
+    # print("Preparing an environment for working with collections...")
     ch_s = ChromaService(c.chroma_host, c.chroma_port)
-    ch_s.info_chroma()
+    # ch_s.info_chroma()
+    # ch_s.display_collections()
+    #
     # ch_s.preconditioning(collection_name)
     # print("Create collection...")
     # create_collection(collection_name)
     # print("Add web/pdf/txt data to collection...")
-    # add_data(exist_collection_name=collection_name, upload_type="TXT", add_path=file_path)
+    # add_data(exist_collection_name=collection_name, upload_type="PDF",
+    #          add_path="Upload/side_effects_guideline_for_RAG_paged.pdf")
     # print("Common data info:")
     # handle_collection(collection_name)
     # print(f"Query to collection {collection_name}:")
-    # vs_query(collection_name, "апатия", search_type="vector", k=2)
+    documents = vs_query(collection_name, "побочные эффекты клозапина", search_type="mmr", k=3, model="distiluse")
+    for doc in documents:
+        print("##############")
+        print(doc.page_content)
+        print(doc.metadata)
+        print("##############")
     print(" ==== ==== ")
     print(" ==== ==== ")
-    # query_collection(collection_name, "апатия", n_results=2)
+    # documents = query_collection(collection_name, "Специфические побочные эффекты Клозапин", n_results=3, model="distiluse")
+    # for doc in documents:
+    #     print("###############")
+    #     print(doc.page_content)
+    #     print(doc.metadata)
+    #     print("###############")

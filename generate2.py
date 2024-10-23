@@ -2,14 +2,13 @@ from langchain_core.documents import Document
 
 import config as c  # Here are all ip, llm names and other important things
 import time
-from ollama import AsyncClient
+from ollama import AsyncClient, Options
 import json_converter as j
 
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Выбор llm
 llm = c.ll_model_big
-
 
 # Post-processing
 def format_docs(docs):
@@ -98,4 +97,5 @@ async def generate_answer(question: str, documents: list[Document], history: lis
     print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
     #
     print("aresult['response'] type is: ", type(aresult))
+    print("aresult['response']: ", aresult['response'])
     return aresult['response']

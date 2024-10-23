@@ -1,9 +1,11 @@
 # Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
-# v 5.1
-# Теперь это чат с логикой агента, расширенной на просто чат. Есть память в виде переменной history[]
+# v 6.0 "long logic"
+# Теперь это чат с логикой агента, расширенной на чат. Есть память в виде переменной history[]
 # Но память langGraph в этой реализации не используется.
 # Существенное изменение - добавление нативного ретривера поверх векторной базы данных Chroma DB
 # ollama embeddings в данной конфигурации не используется.
+# Пытаюсь удлинить логику работы узлов RAG с помощью i+
+
 
 import asyncio
 import copy
@@ -20,7 +22,6 @@ import check
 import routing2 as route
 import aretrieve2 as retrieve
 import search
-import config as c  # Here are all ip, llm names and other important things
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
@@ -38,11 +39,12 @@ os.environ["LANGCHAIN_API_KEY"] = "lsv2_pt_6d9bf08fa23640858749987c9d7ba5d7_37ce
 # ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
 
 class AgentState(TypedDict):
-    # messages: Annotated[list[AnyMessage], operator.add]
     question: str
     generation: str
     web_search: str
-    collection_name: str # Пробуем в связи с необходимостью использовать разные модели (рус/eng)
+    collection_name: str  # Пробуем в связи с необходимостью использовать разные модели (рус/eng)
+    collection_name_rus: str
+    attempt_count: int  # счетчик попыток обращения к RAG до выхода на Web Search
     history: list
     documents: Optional[List[Document]]  # С поправкой на ошибку несоответствия типа в модуле web_search
 
@@ -83,7 +85,6 @@ async def route_question(state: AgentState):
         return "exit"
 
 
-# !
 async def retrieve_vs(state: AgentState):
     """
     Retrieve documents from Chroma Vector Store
@@ -94,15 +95,23 @@ async def retrieve_vs(state: AgentState):
     """
 
     # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
+    attempt_count = 1  # Инициализируем счетчик попыток обращения к RAG
 
-    documents = retrieve.vs_query(existed_collection=c.collect_name, question=state["question"], search_type="mmr", k=2)
+    # state["collection_name"] = "txt-side-eff-cosine-distiluse-base-multilingual-cased-v1"
+
+    print("Collection name: ", state["collection_name"])
+
+    documents = retrieve.vs_query(existed_collection=state["collection_name"], question=state["question"],
+                                  search_type="mmr", k=1)
     print("---RETRIEVE FROM CHROMA Vector Store---")
     question = state["question"]
+    collection_name = state["collection_name"]
     print("Вопрос: ", state["question"])
+    print("Collection name: ", collection_name)
     for document in documents:
-        print(document.page_content)
+        print(document.page_content[:100])
 
-    return {"documents": documents, "question": question}
+    return {"documents": documents, "question": question, "attempt_count": attempt_count}
 
 
 async def retrieve_db(state: AgentState):
@@ -116,14 +125,15 @@ async def retrieve_db(state: AgentState):
 
     # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
 
-    documents = retrieve.query_collection(existed_collection=c.collect_name, question=state["question"])
+    documents = retrieve.query_collection(existed_collection=state["collection_name"], question=state["question"])
     print("---RETRIEVE FROM CHROMA DB---")
     question = state["question"]
+    attempt_count = 2
     print("Вопрос: ", state["question"])
     for document in documents:
         print(document.page_content)
 
-    return {"documents": documents, "question": question}
+    return {"documents": documents, "question": question, "attempt_count": attempt_count}
 
 
 async def retrieve_db_sbert(state: AgentState):
@@ -137,14 +147,16 @@ async def retrieve_db_sbert(state: AgentState):
 
     # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
 
-    documents = retrieve.query_collection(existed_collection=c.collect_name, question=state["question"], model="sbert")
+    documents = retrieve.query_collection(existed_collection=state["collection_name"], question=state["question"],
+                                          model="sbert")
     print("---RETRIEVE FROM CHROMA DB---")
     question = state["question"]
+    attempt_count = 3
     print("Вопрос: ", state["question"])
     for document in documents:
         print(document.page_content)
 
-    return {"documents": documents, "question": question}
+    return {"documents": documents, "question": question, "attempt_count": attempt_count}
 
 
 # not async converted
@@ -198,7 +210,8 @@ async def grade_documents(state: AgentState):
     # Score each doc
 
     filtered_docs = []
-    web_search = "No"
+    web_search = "no"
+
     if documents is not None:
         for d in documents:
             score = await check.grade(question=question, document=d.page_content)
@@ -213,17 +226,22 @@ async def grade_documents(state: AgentState):
                 print("---GRADE: DOCUMENT NOT RELEVANT---")
                 # We do not include the document in filtered_docs
                 # We set a flag to indicate that we want to run web search
-                web_search = "Yes"
+
+                web_search = "yes"
                 continue
     else:
         print("Document was not given, maybe because of connection error")
-    return {"documents": filtered_docs, "question": question, "web_search": web_search}
+    return {"documents": filtered_docs, "question": question, "web_search": web_search, }
 
 
 # ! sync
 def decide_to_generate(state: AgentState):
     """
-    Эта функция определяет, нужно ли выполнять веб-поиск или можно генерировать ответ.
+    Определяет какое векторное хранилище будет на следующей итерации до тех пор, пока не будет достигнуто условие
+    наибольшего числа итераций.
+    Например, векторных хранилища/коллекций в одном хранилище = 3. Итерационный индекс в таком случае = 2 (начиная с 0).
+    При достижении максимального значения индекса, поиск переходит к WebSearch, что означает, что в векторных хранилищах
+    релевантной информации не найдено.
 
     Args:
         state (dict): The current graph state
@@ -235,14 +253,45 @@ def decide_to_generate(state: AgentState):
     print("---ASSESS GRADED DOCUMENTS---")
 
     web_search = state["web_search"]
+    attempt_counter = state["attempt_count"]
+    print("########################")
+    print("decide_to_generate attempt_counter: ", attempt_counter)
+    print("########################")
 
-    if web_search == "Yes":
+    if web_search == "yes" and attempt_counter == 1:  # Пока что захардкодим эту величину
+
         # All documents have been filtered check_relevance
         # We will re-generate a new query
         print(
-            "---DECISION: ALL DOCUMENTS ARE NOT RELEVANT TO QUESTION, START WEB SEARCH---"
+            f"---DOCUMENTS ARE NOT RELEVANT TO QUESTION, "
+            f"STARTING SEARCH NEXT COLLECTION. "
+            f"Attempts: {attempt_counter}---"
         )
-        return "websearch"
+        return "retrieve_next_1"
+
+    elif web_search == "yes" and attempt_counter == 2:  # Пока что захардкодим эту величину
+
+        # All documents have been filtered check_relevance
+        # We will re-generate a new query
+        print(
+            f"---DOCUMENTS ARE NOT RELEVANT TO QUESTION, "
+            f"STARTING SEARCH NEXT COLLECTION. "
+            f"Attempts: {attempt_counter}---"
+        )
+        state["collection_name"] = "txt-side-eff-cosine-sbert_large_nlu_ru"
+        return "retrieve_next_2"
+
+    elif web_search == "yes" and attempt_counter == 3:
+
+        # All documents have been filtered check_relevance
+        # We will re-generate a new query
+        print(
+            f"---DOCUMENTS ARE NOT RELEVANT TO QUESTION, "
+            f"STARTING WEB SEARCH. "
+            f"Attempts: {attempt_counter}---"
+        )
+        return "web_search"
+
     else:
         # We have relevant documents, so generate answer
         print("---DECISION: GENERATE---")
@@ -270,10 +319,6 @@ async def generate_final(state: AgentState):
     history_copy = copy.deepcopy(history)
 
     try:
-        # documents = generate.format_docs(documents)  # Эта функция почему-то не работает!
-        # history = state["history"]
-        # print(f' HISTORY: {history}')
-
         # generation based on RAG or WEB_Search tool
         generation = await generate.generate_answer(question, documents, history_copy)
     except Exception as e:
@@ -326,17 +371,27 @@ async def grade_generation_v_documents_and_question(state: AgentState):
     try:
         score = await check.hallucinations_checker(documents, generation)
         grade = score["score"]
+
+        print("check.hallucinations_checker, score: ", score)
+        print("check.hallucinations_checker, grade: ", grade)
     except Exception as e:
-        print("Ошибка получения данных: ", e)
+        print("Ошибка получения данных от check.hallucinations_checker: ", e)
 
     # Check hallucination
     if grade == "yes":
         print("---DECISION: GENERATION IS GROUNDED IN DOCUMENTS---")
+
         # Check question-answering
         print("---GRADE GENERATION vs QUESTION---")
+        try:
+            score = await check.answer_grader(question, generation)
+            grade = score["score"]
+            print("check.answer_grader, score: ", score)
+            print("check.answer_grader, grade: ", grade)
 
-        score = await check.answer_grader(question, generation)
-        grade = score["score"]
+        except Exception as e:
+            print("Ошибка получения данных от check.answer_grader: ", e)
+
         if grade == "yes":
             print("---DECISION: GENERATION ADDRESSES QUESTION---")
             return "useful"
@@ -344,7 +399,7 @@ async def grade_generation_v_documents_and_question(state: AgentState):
             print("---DECISION: GENERATION DOES NOT ADDRESS QUESTION---")
             return "not useful"
     else:
-        print("---Nothing found again, RE-TRY---")
+        print("---Nothing found, RE-TRY---")
         return "not supported"
 
 
@@ -367,22 +422,31 @@ class Agent:
             route_question,
             {
                 "websearch": "websearch",
-                "vectorstore": "retrieve",
+                "vectorstore": "retrieve_vs",
                 "chat": "chat",
+                "exit": END,
             },
         )
 
-        graph.add_edge("retrieve", "grade_documents")
+        graph.add_edge("retrieve_vs", "grade_documents")
 
+        # добавим еще одну ветку, связанную с последовательным перебором коллекций перед переходом на
+        # websearch
         graph.add_conditional_edges(
             "grade_documents",
             decide_to_generate,
             {
                 "websearch": "websearch",
                 "generate": "generate",
+                "retrieve_next_1": "retrieve_db",
+                "retrieve_next_2": "retrieve_db_sbert",
             },
         )
         graph.add_edge("websearch", "generate")
+
+        # усложним логику дополнительным ветвлением для поиска разными способами с двумя моделями.
+        graph.add_edge("retrieve_db", "grade_documents")
+        graph.add_edge("retrieve_db_sbert", "grade_documents")
 
         graph.add_conditional_edges(
             "generate",
@@ -403,20 +467,25 @@ async def agent_conversation(agent: Agent):
 
     # Инициализация пустой истории
     history = []
+    name_of_collection: str = "22_10_2024_distiluse"
+    name_of_collection_rus: str = "txt-side-eff-cosine-sbert_large_nlu_ru"
+    # attempt_counter: int = 0
 
     print("Начнем беседу с агентом. Введите ваш вопрос.")
     while True:
         question = input("You: ")
-        if question.lower() in ["exit", "quit", "e", "q"]:
+        if question.lower() in ["exit", "quit", "e", "q", "выход", "в"]:
             print("Goodbye!")
             break
         # Добавляем новый вопрос в историю
         history.append({"role": "user", "content": question})
 
         # Для каждого нового вопроса создаем состояние агента
-        inputs = {"question": question, "history": history}
+        inputs = {"question": question, "history": history, "collection_name": name_of_collection,
+                  "collection_name_rus": name_of_collection_rus,
+                  }
 
-        # Выполняем агент для каждого вопроса
+        # Запускаем цикл агента для каждого вопроса
         result = await run_agent(agent, inputs)
 
         # Добавляем ответ агента в историю

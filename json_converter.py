@@ -24,5 +24,5 @@ def str_to_json(input_str: str) -> str:
             return json.loads(input_str)
         except json.JSONDecodeError as e:
             # Если строку все равно не удалось преобразовать, выводим сообщение об ошибке
-            print(f"Ошибка преобразования строки в JSON: {e}")
+            print(f"Ошибка в конвертере: не получается преобразование строки в JSON: {e}")
             return None
