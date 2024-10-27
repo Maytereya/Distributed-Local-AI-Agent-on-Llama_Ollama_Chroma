@@ -18,7 +18,7 @@ import warnings
 import generate2 as generate
 import check
 import routing2 as route
-import aretrieve2 as retrieve
+from Deprecated import aretrieve2 as retrieve
 import search
 import config as c  # Here are all ip, llm names and other important things
 

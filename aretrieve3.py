@@ -1,5 +1,25 @@
-from typing import Literal, Optional, Union
+# Загрузка модели для эмбеддингов
+#
+# from InstructorEmbedding import INSTRUCTOR
+# i_model = INSTRUCTOR('hkunlp/instructor-large')
 
+# model_only = "cointegrated/LaBSE-en-ru"
+# model_only = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2' # эффективность под вопросом
+# model_only = 'sentence-transformers/LaBSE'
+#
+# model_only = "sentence-transformers/distiluse-base-multilingual-cased-v1"
+
+
+# ==== Медицинские модели =====
+# model_only = "dmis-lab/biobert-v1.1"
+# model_only = "pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb"
+
+# ==== Русские модели =====
+# model_only = "DeepPavlov/rubert-base-cased" # Не работала.
+# model_only = "ai-forever/sbert_large_nlu_ru"
+
+
+from typing import Literal, Optional, Union
 from chromadb.api.models.Collection import Collection
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
@@ -17,69 +37,20 @@ from typing import List
 import warnings
 import config as c  # Here are all ip, llm names and other important things
 
-
-# import chromadb.utils.embedding_functions as embedding_functions
-
-import chromadb.utils.embedding_functions as embedding_functions
-from InstructorEmbedding import INSTRUCTOR
-model = INSTRUCTOR('hkunlp/instructor-large')
-
-# ef = embedding_functions.InstructorEmbeddingFunction(
-# model_name="hkunlp/instructor-xl", device="cuda")
-
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
 )
 
-# Index
-
-urls_rus = [
-    "https://neiro-psy.ru/blog/monopobiya-kak-nazyvaetsya-strah-ostavatsya-odnomu-i-kak-s-nim-spravitsya",
-    "https://neiro-psy.ru/blog/bipolyarnoe-rasstrojstvo-i-depressiya-ponimanie-razlichij",
-    "https://neiro-psy.ru/blog/razdvoenie-lichnosti-kak-raspoznat-simptomy-i-obratitsya-za-pomoshchyu",
-]
-
-# PDF document to load pass
-# file_path = "pdf/taking_guidelines.pdf"
-file_path = "Upload/"
-
-# Variables group for chroma collections management
-# collection_name: str = "rag-chr-pdf-side-eff-cosine-LaBSE-en-ru"
-# collection_name: str = "txt-side-eff-cosine-LaBSE-en-ru"
-# collection_name: str = "txt-side-eff-cosine-MiniLM-L12-v2"
-# collection_name: str = "23_10_2024_allenai-specter_pdf"
-collection_name: str = "23_10_2024_distiluse_pdf"
-# collection_name: str = "txt-side-eff-cosine-sbert_large_nlu_ru"
 # ini the chroma client
 chroma_client = chromadb.HttpClient(host=c.chroma_host, port=c.chroma_port)
 
-# Загрузка модели для эмбеддингов
-#
-# model_only = "cointegrated/LaBSE-en-ru"
-# model_only = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2' # эффективность под вопросом
-# model_only = 'sentence-transformers/LaBSE'
-#
-# model_only = "sentence-transformers/distiluse-base-multilingual-cased-v1"
 
-
-# ==== Медицинские модели =====
-# model_only = "dmis-lab/biobert-v1.1"
-# model_only = "pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb"
-
-# ==== Русские модели =====
-# model_only = "DeepPavlov/rubert-base-cased"
-# model_only = "ai-forever/sbert_large_nlu_ru"
-
-from typing import Literal
-from sentence_transformers import SentenceTransformer
-
-
-def choose_model(model: Literal["distiluse", "sbert", "default"] = "default",
+def choose_model(model: Literal["distiluse", "sbert", "instructor", "default"] = "default",
                  return_type: Literal["model", "name"] = "model") -> Union[SentenceTransformer, str]:
     """
     Select and return either the sentence transformer model or the model name string.
 
-    :param model: The name of the model to select. Options: "distiluse", "sbert", "default".
+    :param model: The name of the model to select. Options: "distiluse", "sbert", "instructor", "default".
     :param return_type: Determines whether to return the model object ("model") or just the model name ("name").
     :return: The selected model as a SentenceTransformer object or a string with the model name.
     """
@@ -87,7 +58,8 @@ def choose_model(model: Literal["distiluse", "sbert", "default"] = "default",
     model_mapping = {
         "distiluse": "sentence-transformers/distiluse-base-multilingual-cased-v1",
         "sbert": "ai-forever/sbert_large_nlu_ru",
-        "default": "sentence-transformers/allenai-specter"
+        "instructor": "hkunlp/instructor-xl",
+        "default": "cointegrated/LaBSE-en-ru"
     }
 
     selected_model_name = model_mapping.get(model, model_mapping["default"])
@@ -95,6 +67,7 @@ def choose_model(model: Literal["distiluse", "sbert", "default"] = "default",
     if return_type == "name":
         # Return only the model name as a string
         return selected_model_name
+
     else:
         # Return the model object
         return SentenceTransformer(selected_model_name)
@@ -147,38 +120,20 @@ class ChromaService:
             print(f"Collection with name '{target_name}' does not exist, we'll create it on the next step.")
 
 
-# class LocalHuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
-#     """
-#     Only for Chroma server database
-#     For chroma vectorstore use model_only
-#
-#     """
-#
-#     def __call__(self, input: Documents) -> Embeddings:
-#         """
-#         Важная функция для работы эмбеддинговой модели в ChromaDB
-#
-#         :param input: LangChain Document list.
-#         :return: python list of embeddings
-#         """
-#         sent_transform_model = choose_model(model_only)
-#         # Convert the numpy array to a Python list
-#         return sent_transform_model.encode(input, show_progress_bar=True).tolist()
-
-class LocalHuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
+class HuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
     """
     Only for Chroma server database.
     For Chroma vectorstore, use the string model name specified.
-    Warning! Default model for embeddings is distiluse-base-multilingual-cased-v1.
+    Warning! Default model for embeddings is cointegrated/LaBSE-en-ru.
     to change the model to RUS SBERT choose model: sbert.
     """
 
-    def set_model(self, model: Literal["distiluse", "sbert", "default"] = "default"):
+    def set_model(self, model: Literal["distiluse", "sbert", "instructor", "default"] = "default"):
         """
         Set the model to be used for embedding.
-        :param model: Model name to use for embedding, options are "distiluse", "sbert", or "default".
+        :param model: Model name to use for embedding, options are "distiluse", "sbert", "instructor", or "default".
         """
-        self.sent_transform_model = choose_model(model)
+        self._model = choose_model(model)
 
     def __call__(self, input: Documents) -> Embeddings:
         """
@@ -186,12 +141,12 @@ class LocalHuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
         :param input: LangChain Document list.
         :return: Python list of embeddings.
         """
-        if not hasattr(self, 'sent_transform_model'):
+        if not hasattr(self, '_model'):
             # If the model hasn't been set, use default
-            self.sent_transform_model = choose_model("default")
+            self._model = choose_model("default")
 
         # Convert the numpy array to a Python list
-        return self.sent_transform_model.encode(input, show_progress_bar=True).tolist()
+        return self._model.encode(input, show_progress_bar=True, ).tolist()
 
 
 def web_txt_splitter(add_urls) -> List[Document]:
@@ -272,7 +227,7 @@ def pdf_loader(path: str) -> List[Document]:
 
 def handle_collection(existed_collection):
     collection = chroma_client.get_collection(name=existed_collection,
-                                              embedding_function=LocalHuggingFaceEmbeddingFunction())
+                                              embedding_function=HuggingFaceEmbeddingFunction())
     # peek = collection.peek()  # returns a list of the first 10 items in the collection
     count = collection.count()  # returns the number of items in the collection
     print(f'the number of items in the collection: {count}')
@@ -289,7 +244,7 @@ def create_collection(exist_collection_name,
     Valid options for hnsw:space are "l2", "ip", or "cosine".
     The default is "l2" which is the squared L2 norm.
     """
-    embedding_function = LocalHuggingFaceEmbeddingFunction()
+    embedding_function = HuggingFaceEmbeddingFunction()
     embedding_function.set_model(model)  # И так установлено по умолчанию.
 
     try:
@@ -303,17 +258,17 @@ def create_collection(exist_collection_name,
             print(f"Failed to create collection: {exist_collection_name}")
             return None
     except Exception as e:
-        print(f"An error occurred while creating the collection: {e}")
+        print(f"An error occurred while creating the collection / Ошибка при создании коллекции: {e}")
         return None
 
 
 def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], add_urls: Optional[list] = None,
-             add_path: Optional[str] = None, model: Literal["distiluse", "sbert", "default"] = "default"):
+             add_path: Optional[str] = None, model: Literal["distiluse", "sbert", "instructor", "default"] = "default"):
     """
 
     Добавляет данные в существующую коллекцию Chroma DB в зависимости от типа загрузки (URL или PDF).
 
-    :param model: Выбор между "distiluse" (по умолчанию) и "sbert".
+    :param model: Выбор между "LaBSE-en-ru" (по умолчанию), "sbert", "instructor", "distiluse".
     :param exist_collection_name: Название существующей коллекции, в которую будут добавляться данные.
     :param upload_type: Тип загружаемых данных. Должен быть указан как "URL" или "PDF".
         - "URL": Загрузка текстовых данных по списку URL-адресов.
@@ -352,7 +307,7 @@ def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], a
         else:
             print("Не переданы необходимые данные для загрузки.")
 
-        embedding_function = LocalHuggingFaceEmbeddingFunction()
+        embedding_function = HuggingFaceEmbeddingFunction()
         embedding_function.set_model(model)
 
         # Получаем коллекцию
@@ -389,10 +344,10 @@ def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], a
 
 
 # :: Chroma DB ::
-def query_collection(existed_collection, question: str, n_results: int = 2,
-                     model: Literal["distiluse", "sbert", "default"] = "default") -> Optional[
+def query_collection(existed_collection, question: str, contains: str = " ", n_results: int = 2,
+                     model: Literal["distiluse", "sbert", "instructor", "default"] = "default") -> Optional[
     List[Document]]:
-    embedding_function = LocalHuggingFaceEmbeddingFunction()
+    embedding_function = HuggingFaceEmbeddingFunction()
     embedding_function.set_model(model)
 
     collection = chroma_client.get_collection(name=existed_collection,
@@ -403,7 +358,7 @@ def query_collection(existed_collection, question: str, n_results: int = 2,
         query_texts=question,
         n_results=n_results,
         # where={"metadata_field": "is_equal_to_this"},
-        where_document={"$contains": "Клозапин"}
+        # where_document={"$contains": contains}
     )
 
     # print("QUERY RESPONSE (def query_collection): ")
@@ -426,7 +381,8 @@ def query_collection(existed_collection, question: str, n_results: int = 2,
 
 # :: Chroma Vector Store ::
 def vs_query(existed_collection: str, question: str, search_type: Literal["simil", "simil_score", "vector", "mmr"],
-             model: Literal["distiluse", "sbert", "default"] = "default", k: int = 3, filters: dict = None):
+             model: Literal["distiluse", "sbert", "instructor", "default"] = "default", k: int = 3,
+             filters: dict = None):
     """
     Выполняет поиск по векторной базе данных с использованием различных типов поиска и выбранной модели эмбеддингов.
 
@@ -502,7 +458,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
 
         elif search_type == "mmr":
             retriever = vector_store_from_client.as_retriever(
-                search_type="mmr", search_kwargs={"k": k, "fetch_k": 10}
+                search_type="mmr", search_kwargs={"k": k, "fetch_k": 25, "lambda_mult": 0.15}
             )
             print("search_type = mmr")
             documents = retriever.invoke(question, filter=filters)
@@ -517,29 +473,47 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
 # Тестирование
 if __name__ == '__main__':
     print(':: TESTING ::')
-    # print("Preparing an environment for working with collections...")
+
+    # PDF document to load pass
+    # file_path = "pdf/taking_guidelines.pdf"
+    # txt document directory pass
+    file_path = "Upload/"
+
+    urls_rus = [
+        "https://neiro-psy.ru/blog/monopobiya-kak-nazyvaetsya-strah-ostavatsya-odnomu-i-kak-s-nim-spravitsya",
+        "https://neiro-psy.ru/blog/bipolyarnoe-rasstrojstvo-i-depressiya-ponimanie-razlichij",
+        "https://neiro-psy.ru/blog/razdvoenie-lichnosti-kak-raspoznat-simptomy-i-obratitsya-za-pomoshchyu",
+    ]
+
+    collection_name: str = "25_10_2024_LaBSE-en-ru_pdf"
+    question = "клозапина побочные эффекты"
+
+    print("Preparing an environment for working with collections...")
     ch_s = ChromaService(c.chroma_host, c.chroma_port)
-    # ch_s.info_chroma()
-    # ch_s.display_collections()
+    ch_s.info_chroma()
+    ch_s.display_collections()
     #
     # ch_s.preconditioning(collection_name)
     # print("Create collection...")
     # create_collection(collection_name)
     # print("Add web/pdf/txt data to collection...")
     # add_data(exist_collection_name=collection_name, upload_type="PDF",
-    #          add_path="Upload/side_effects_guideline_for_RAG_paged.pdf")
+    #          add_path="Upload/side_effects_guideline_for_RAG_paged.pdf", )
     # print("Common data info:")
     # handle_collection(collection_name)
     # print(f"Query to collection {collection_name}:")
-    documents = vs_query(collection_name, "побочные эффекты клозапина", search_type="mmr", k=3, model="distiluse")
-    for doc in documents:
-        print("##############")
-        print(doc.page_content)
-        print(doc.metadata)
-        print("##############")
+    # print("Вопрос:", question)
+    # documents = vs_query(collection_name, question=question, search_type="mmr", k=8, )
+    #
+    # for doc in documents:
+    #     print("##############")
+    #     print(doc.page_content)
+    #     print(doc.metadata)
+    #     print("##############")
+    # print(" ==== ==== ")
     print(" ==== ==== ")
-    print(" ==== ==== ")
-    # documents = query_collection(collection_name, "Специфические побочные эффекты Клозапин", n_results=3, model="distiluse")
+    # documents = query_collection(collection_name, "СС", contains="апатия", n_results=2,
+    #                              model="instructor")
     # for doc in documents:
     #     print("###############")
     #     print(doc.page_content)

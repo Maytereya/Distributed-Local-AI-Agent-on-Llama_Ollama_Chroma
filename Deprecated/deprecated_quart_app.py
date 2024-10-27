@@ -1,6 +1,6 @@
 # app.py
 from quart import Quart, render_template, request, session
-from Deprecated.conversational_async_graph_operator import Agent, run_agent  # Импортируем агента
+from conv_async_graph_operator3 import Agent, run_agent  # Импортируем агента
 
 app = Quart(__name__)
 app.secret_key = '3380841777'  # Для обеспечения безопасности сессий
@@ -22,7 +22,7 @@ async def get_agent_response(user_text, agent, history):
 
 @app.route("/")
 async def home():
-    return await render_template("index.html")
+    return await render_template("index1.html")
 
 
 @app.route("/get")

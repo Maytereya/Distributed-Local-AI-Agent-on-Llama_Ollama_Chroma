@@ -19,7 +19,7 @@ def get_completion(prompt, model="gpt-3.5-turbo"):
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template("index1.html")
 
 
 @app.route("/get")

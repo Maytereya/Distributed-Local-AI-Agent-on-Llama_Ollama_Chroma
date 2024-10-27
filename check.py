@@ -13,10 +13,10 @@ import json_converter as j
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Пробуем еще раз опции добавить, авось не понизит скорость.
-options = Options(temperature=0)
+options = Options(temperature=0, num_ctx=128000)
 
 # Выбор llm
-llm = c.ll_model_big
+llm = c.ll_model_large_ctx
 
 
 async def grade(question: str, document: str):
@@ -42,7 +42,7 @@ async def grade(question: str, document: str):
         prompt=prompt,
         format="json",
         options=options,
-        # keep_alive=-1,
+        keep_alive=-1,
 
     )
 
@@ -75,14 +75,17 @@ async def hallucinations_checker(documents, generation):
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing whether '
               'an answer is grounded in / supported by a set of facts. Give a binary "yes" or "no" score to indicate '
               'whether the answer is grounded in / supported by a set of facts. Provide the binary score as a JSON with a '
-              'single key "score" and no preamble or explanation. <|eot_id|><|start_header_id|>user<|end_header_id|>'
+              'single key "score" and no preamble or explanation. '
               'If the answer is supported by the set of facts, return {"score": "yes"}. If it is not, '
               'return {"score": "no"}.'
+              '<|eot_id|><|start_header_id|>user<|end_header_id|>'
               'Here are the facts:'
               '\n ------- \n'
               f'{documents} '
               '\n ------- \n'
-              f'Here is the answer: {generation}  <|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+              f'Here is the answer: '
+              f'\n ------- \n'
+              f'{generation} <|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate
     start_time = time.time()
@@ -138,9 +141,18 @@ async def hallucinations_checker_v2(documents, generation):
 async def answer_grader(question: str, generation):
     """Answer Grader"""
 
+    # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
+    #           'You are a grader assessing whether an answer is useful to resolve a question. Give a binary score "yes" or "no" to indicate whether the answer is useful to resolve a question. '
+    #           'Provide the binary score as a JSON with a single key "score" and no preamble or explanation. '
+    #           'Example: {"score": "yes"} or {"score": "no"}. '
+    #           '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+    #           f'Here is the generated answer: \n\n{generation} \n\n'
+    #           f'Here is the question: \n\n{question} \n\n'
+    #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
-              'You are a grader assessing whether an answer is useful to resolve a question. Give a binary score "yes" or "no" to indicate whether the answer is useful to resolve a question. '
-              'Provide the binary score as a JSON with a single key "score" and no preamble or explanation. '
+              'You are evaluating if a generated answer addresses the given question. Provide a binary score: "yes" if the answer addresses the question directly and "no" if it does not. '
+              'Return the score as JSON with a single key "score" only, with no preamble, explanation, or extra text. '
               'Example: {"score": "yes"} or {"score": "no"}. '
               '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Here is the generated answer: \n\n{generation} \n\n'

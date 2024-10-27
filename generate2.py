@@ -10,6 +10,7 @@ ollama_aclient = AsyncClient(host=c.ollama_url)
 # Выбор llm
 llm = c.ll_model_big
 
+
 # Post-processing
 def format_docs(docs):
     """Convert Document to string
@@ -66,12 +67,16 @@ async def generate_answer(question: str, documents: list[Document], history: lis
     if history is None:
         history = []
 
+    print("===================")
+    print(history)
+    print("===================")
+
     prompt = (f'<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
               'You are an assistant tasked with answering user questions based on the provided context. '
               'Use the following retrieved information to generate a concise, plain-text response. '
               'If you do not know the answer, simply state that you do not know. '
               'Limit your response to a maximum of six sentences. '
-              'If previous conversation history exists, reference it in your answer. If there is no history, you may ignore it. '
+              'If previous conversation history exists, reference it in your answer. If there is just user question, you must ignore it. '
               '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Question: {question}. \n\n'
               f'Context: {documents}. \n\n'
