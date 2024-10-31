@@ -22,6 +22,7 @@ import check
 import routing2 as route
 import aretrieve3 as retrieve
 import search
+import formulate
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
@@ -29,11 +30,12 @@ warnings.filterwarnings(
 
 _ = load_dotenv()
 
-import os
 
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
-os.environ["LANGCHAIN_API_KEY"] = "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"
+# import os
+
+# os.environ["LANGCHAIN_TRACING_V2"] = "true"
+# os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+# os.environ["LANGCHAIN_API_KEY"] = "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"
 
 
 # ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
@@ -50,7 +52,7 @@ class AgentState(TypedDict):
     documents: Optional[List[Document]]  # С поправкой на ошибку несоответствия типа в модуле web_search
 
 
-# Входная функция !
+# Входная функция:
 async def route_question(state: AgentState):
     """
     Эта функция определяет, куда направить вопрос: на веб-поиск,
@@ -88,13 +90,12 @@ async def route_question(state: AgentState):
 
 async def retrieve_vs_1(state: AgentState):
     """
-    Retrieve documents from Chroma Vector Store
+    Retrieve documents from Chroma Vector Store with high diversity of results
     Args:
         state (dict): The current graph state
     Returns:
         state (dict): New key added to state, documents, that contains retrieved documents
     """
-
 
     attempt_count = 1  # Инициализируем счетчик попыток обращения к RAG
 
@@ -103,37 +104,35 @@ async def retrieve_vs_1(state: AgentState):
     print("Collection name: ", state["collection_name_1"])
 
     documents = retrieve.vs_query(existed_collection=state["collection_name_1"], question=state["question"],
-                                  search_type="mmr", k=5)
-    print("---RETRIEVE FROM CHROMA Vector Store---")
+                                  search_type="mmr", k=5, lambda_mult=0.25)
+    print("---RETRIEVE FROM CHROMA Vector Store with high diversity of results---")
     question = state["question"]
     collection_name = state["collection_name_1"]
     print("Вопрос: ", state["question"])
     print("Collection name: ", collection_name)
-    for document in documents:
-        print(document.page_content[:100])
+    # for document in documents:
+    #     print(document.page_content[:200])
 
     return {"documents": documents, "question": question, "attempt_count": attempt_count}
 
 
-async def retrieve_db_2(state: AgentState):
+async def retrieve_vs_2(state: AgentState):
     """
-    Retrieve documents from Chroma Database
+    Retrieve documents from Chroma vector store with lower diversity lambda_mult=0.85
     Args:
         state (dict): The current graph state
     Returns:
         state (dict): New key added to state, documents, that contains retrieved documents
     """
 
-    # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
-
-    documents = retrieve.query_collection(existed_collection=state["collection_name_1"], question=state["question"],
-                                          n_results=1)
-    print("---RETRIEVE FROM CHROMA DB---")
+    documents = retrieve.vs_query(existed_collection=state["collection_name_1"], question=state["question"],
+                                  search_type="mmr", k=5, lambda_mult=0.85)
+    print("---RETRIEVE FROM VS with lower diversity---")
     question = state["question"]
     attempt_count = 2
     print("Вопрос: ", state["question"])
-    for document in documents:
-        print(document.page_content)
+    # for document in documents:
+    #     print(document.page_content)
 
     return {"documents": documents, "question": question, "attempt_count": attempt_count}
 
@@ -147,10 +146,10 @@ async def retrieve_db_3(state: AgentState):
         state (dict): New key added to state, documents, that contains retrieved documents
     """
 
-    # TODO: existed_collection=c.collect_name - исправить на правильное название коллекции!
+    extracted_keyword = await formulate.extract_keyword(state["question"])
 
-    documents = retrieve.query_collection(existed_collection=state["collection_name_3"], question=state["question"],
-                                          model="distiluse", n_results=1)
+    documents = retrieve.query_collection(existed_collection=state["collection_name_2"], question=state["question"],
+                                          model="distiluse", n_results=5, contains=extracted_keyword)
     print("---RETRIEVE FROM CHROMA DB---")
     question = state["question"]
     attempt_count = 3
@@ -192,7 +191,6 @@ def web_search(state: AgentState):
     return {"documents": documents, "question": question}
 
 
-# !
 async def grade_documents(state: AgentState):
     """
     Determines whether the retrieved documents are relevant to the question.
@@ -290,7 +288,7 @@ def decide_to_generate(state: AgentState):
             f"STARTING WEB SEARCH. "
             f"Attempts: {attempt_counter}---"
         )
-        return "web_search"
+        return "websearch"
 
     else:
         # We have relevant documents, so generate answer
@@ -314,7 +312,10 @@ async def generate_final(state: AgentState):
     documents = state["documents"]
     generation: list[Document] = []
     history = state["history"]
-
+    # print("==== документы, на основании которых будет генерация ======")
+    # for document in documents:
+    #     print(document)
+    # print("==========")
     # Потенциальное избавление от циклических ссылок
     history_copy = copy.deepcopy(history)
 
@@ -372,7 +373,7 @@ async def grade_generation_v_documents_and_question(state: AgentState):
         score = await check.hallucinations_checker(documents, generation)
         grade = score["score"]
 
-        print("check.hallucinations_checker, score: ", score)
+        # print("check.hallucinations_checker, score: ", score)
         print("check.hallucinations_checker, grade: ", grade)
     except Exception as e:
         print("Ошибка получения данных от check.hallucinations_checker: ", e)
@@ -386,7 +387,7 @@ async def grade_generation_v_documents_and_question(state: AgentState):
         try:
             score = await check.answer_grader(question, generation)
             grade = score["score"]
-            print("check.answer_grader, score: ", score)
+            # print("check.answer_grader, score: ", score)
             print("check.answer_grader, grade: ", grade)
 
         except Exception as e:
@@ -411,7 +412,7 @@ class Agent:
 
         graph.add_node("websearch", web_search)  # web search
         graph.add_node("retrieve_vs_1", retrieve_vs_1)  # retrieve from Chroma vector store mmr only
-        graph.add_node("retrieve_db_2", retrieve_db_2)  # retrieve from Chroma DB vector search
+        graph.add_node("retrieve_vs_2", retrieve_vs_2)  # retrieve from Chroma DB vector search
         graph.add_node("retrieve_db_3", retrieve_db_3)  # retrieve from Chroma DB vector search with sbert model
         graph.add_node("grade_documents", grade_documents)  # grade documents
         graph.add_node("generate", generate_final)  # generate
@@ -438,14 +439,14 @@ class Agent:
             {
                 "websearch": "websearch",
                 "generate": "generate",
-                "retrieve_next_1": "retrieve_db_2",
+                "retrieve_next_1": "retrieve_vs_2",
                 "retrieve_next_2": "retrieve_db_3",
             },
         )
         graph.add_edge("websearch", "generate")
 
         # усложним логику дополнительным ветвлением для поиска разными способами с двумя моделями.
-        graph.add_edge("retrieve_db_2", "grade_documents")
+        graph.add_edge("retrieve_vs_2", "grade_documents")
         graph.add_edge("retrieve_db_3", "grade_documents")
 
         graph.add_conditional_edges(
@@ -454,7 +455,8 @@ class Agent:
             {
                 "not supported": "generate",
                 "useful": END,
-                "not useful": "websearch",
+                # "not useful": "websearch",
+                "not useful": "retrieve_vs_2",
             },
         )
         graph.add_edge("chat", END)

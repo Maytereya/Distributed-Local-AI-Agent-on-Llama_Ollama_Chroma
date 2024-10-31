@@ -5,7 +5,7 @@ from ollama import AsyncClient
 from datetime import datetime
 
 # Выбираем модель, которая будет использоваться {быстрая ll_model или медленная, но точная ll_model_big}
-llm = c.ll_model_big
+llm = c.ll_model
 
 async def route(question: str):
     ollama_aclient = AsyncClient(host=c.ollama_url)
@@ -43,7 +43,7 @@ async def route(question: str):
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-    # Без await не работают!
+
     print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
     # print('Предыдущий результат: 3.56 секунд (LTE, MSK)')
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")

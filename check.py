@@ -1,4 +1,5 @@
 import json
+from langchain_core.documents import Document
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
@@ -13,10 +14,11 @@ import json_converter as j
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Пробуем еще раз опции добавить, авось не понизит скорость.
-options = Options(temperature=0, num_ctx=128000)
+# options = Options(temperature=0, num_ctx=128000)
+options = Options(temperature=0, )
 
 # Выбор llm
-llm = c.ll_model_large_ctx
+llm = c.ll_model
 
 
 async def grade(question: str, document: str):
@@ -30,8 +32,9 @@ async def grade(question: str, document: str):
               'Return a binary "yes" or "no" to indicate whether the document is relevant. '
               'Provide your answer as a JSON object with a single key "score" and no additional text. '
               'Example: {"score": "yes"} or {"score": "no"}.'
-              '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Here is the retrieved document: \n\n{document} \n\n'
+              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+              # f' I need to know about: {question} \n\n'
               f'Here is the user question: {question} \n\n'
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
@@ -42,7 +45,7 @@ async def grade(question: str, document: str):
         prompt=prompt,
         format="json",
         options=options,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
@@ -53,12 +56,13 @@ async def grade(question: str, document: str):
     print(f"Eval_duration: {aresult['eval_duration'] / 1_000_000_000}")
     #
     json_result = j.str_to_json(aresult['response'])
+
     print("Module Check. Grade retrieved response: " + str(json_result))
 
     return json_result
 
 
-async def hallucinations_checker(documents, generation):
+async def hallucinations_checker(documents_in: list[Document], generation):
     """Hallucination Grader"""
 
     # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
@@ -72,16 +76,20 @@ async def hallucinations_checker(documents, generation):
     #           f'Here is the generated answer: \n\n{generation} \n\n'
     #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
+    formatted_docs = "\n\n".join(
+        [f"Document {i + 1}:\n{doc.page_content}" for i, doc in enumerate(documents_in)]
+    )
+
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing whether '
               'an answer is grounded in / supported by a set of facts. Give a binary "yes" or "no" score to indicate '
               'whether the answer is grounded in / supported by a set of facts. Provide the binary score as a JSON with a '
               'single key "score" and no preamble or explanation. '
               'If the answer is supported by the set of facts, return {"score": "yes"}. If it is not, '
               'return {"score": "no"}.'
-              '<|eot_id|><|start_header_id|>user<|end_header_id|>'
+              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               'Here are the facts:'
               '\n ------- \n'
-              f'{documents} '
+              f'{formatted_docs} '
               '\n ------- \n'
               f'Here is the answer: '
               f'\n ------- \n'
@@ -154,7 +162,7 @@ async def answer_grader(question: str, generation):
               'You are evaluating if a generated answer addresses the given question. Provide a binary score: "yes" if the answer addresses the question directly and "no" if it does not. '
               'Return the score as JSON with a single key "score" only, with no preamble, explanation, or extra text. '
               'Example: {"score": "yes"} or {"score": "no"}. '
-              '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Here is the generated answer: \n\n{generation} \n\n'
               f'Here is the question: \n\n{question} \n\n'
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')

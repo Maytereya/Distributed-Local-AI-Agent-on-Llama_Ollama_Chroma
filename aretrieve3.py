@@ -2,7 +2,7 @@
 #
 # from InstructorEmbedding import INSTRUCTOR
 # i_model = INSTRUCTOR('hkunlp/instructor-large')
-
+import asyncio
 # model_only = "cointegrated/LaBSE-en-ru"
 # model_only = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2' # эффективность под вопросом
 # model_only = 'sentence-transformers/LaBSE'
@@ -36,6 +36,7 @@ import uuid
 from typing import List
 import warnings
 import config as c  # Here are all ip, llm names and other important things
+import formulate
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
@@ -358,7 +359,7 @@ def query_collection(existed_collection, question: str, contains: str = " ", n_r
         query_texts=question,
         n_results=n_results,
         # where={"metadata_field": "is_equal_to_this"},
-        # where_document={"$contains": contains}
+        where_document={"$contains": contains}
     )
 
     # print("QUERY RESPONSE (def query_collection): ")
@@ -382,10 +383,12 @@ def query_collection(existed_collection, question: str, contains: str = " ", n_r
 # :: Chroma Vector Store ::
 def vs_query(existed_collection: str, question: str, search_type: Literal["simil", "simil_score", "vector", "mmr"],
              model: Literal["distiluse", "sbert", "instructor", "default"] = "default", k: int = 3,
-             filters: dict = None):
+             filters: dict = None, fetch_k: int = 25, lambda_mult: float = 0.85):
     """
     Выполняет поиск по векторной базе данных с использованием различных типов поиска и выбранной модели эмбеддингов.
 
+    :param lambda_mult: Retrieve more documents with higher diversity (0.25). Lower diversity: 0.85. Useful if your dataset has many similar documents
+    :param fetch_k: Fetch more documents for the MMR algorithm to consider
     :param existed_collection: Название существующей коллекции в Chroma DB, в которой выполняется поиск.
     :param question: Вопрос или запрос, по которому выполняется поиск.
     :param search_type: Тип поиска, который будет использован:
@@ -458,10 +461,10 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
 
         elif search_type == "mmr":
             retriever = vector_store_from_client.as_retriever(
-                search_type="mmr", search_kwargs={"k": k, "fetch_k": 25, "lambda_mult": 0.15}
+                search_type="mmr", search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": lambda_mult}
             )
             print("search_type = mmr")
-            documents = retriever.invoke(question, filter=filters)
+            documents = retriever.invoke(question, )
             # print_results(documents)
 
     except Exception as e:
@@ -486,7 +489,7 @@ if __name__ == '__main__':
     ]
 
     collection_name: str = "25_10_2024_LaBSE-en-ru_pdf"
-    question = "клозапина побочные эффекты"
+    question = "причины апатии, коррекция"
 
     print("Preparing an environment for working with collections...")
     ch_s = ChromaService(c.chroma_host, c.chroma_port)
@@ -501,9 +504,11 @@ if __name__ == '__main__':
     #          add_path="Upload/side_effects_guideline_for_RAG_paged.pdf", )
     # print("Common data info:")
     # handle_collection(collection_name)
-    # print(f"Query to collection {collection_name}:")
-    # print("Вопрос:", question)
-    # documents = vs_query(collection_name, question=question, search_type="mmr", k=8, )
+    print(f"Query to collection {collection_name}:")
+    print("Вопрос:", question)
+
+
+    # documents = vs_query(collection_name, question=question, search_type="mmr", k=5, )
     #
     # for doc in documents:
     #     print("##############")
@@ -511,11 +516,17 @@ if __name__ == '__main__':
     #     print(doc.metadata)
     #     print("##############")
     # print(" ==== ==== ")
-    print(" ==== ==== ")
-    # documents = query_collection(collection_name, "СС", contains="апатия", n_results=2,
-    #                              model="instructor")
-    # for doc in documents:
-    #     print("###############")
-    #     print(doc.page_content)
-    #     print(doc.metadata)
-    #     print("###############")
+    # print(" ==== ==== ")
+    async def main(question_in):
+        return await formulate.extract_keyword(question_in)
+
+
+    a = asyncio.run(main(question))
+
+    documents = query_collection(collection_name, question, contains=a, n_results=2,
+                                 model="default")
+    for doc in documents:
+        print("###############")
+        print(doc.page_content)
+        print(doc.metadata)
+        print("###############")

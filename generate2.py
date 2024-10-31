@@ -8,15 +8,15 @@ import json_converter as j
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Выбор llm
-llm = c.ll_model_big
+llm = c.ll_model
 
 
 # Post-processing
-def format_docs(docs):
-    """Convert Document to string
-        This option need for some functions inside async_graph_operator.py: generate_final
-    """
-    return "\n\n".join(doc.page_content for doc in docs)
+# def format_docs(docs):
+#     """Convert Document to string
+#         This option need for some functions inside async_graph_operator.py: generate_final
+#     """
+#     return "\n\n".join(doc.page_content for doc in docs)
 
 
 async def chat(question: str, history: list = None):
@@ -42,7 +42,7 @@ async def chat(question: str, history: list = None):
     # async & .generate
     start_time = time.time()
     aresult = await ollama_aclient.generate(
-        model=c.ll_model,
+        model=llm,
         prompt=prompt,
         # format="json",
         # options=opt,
@@ -60,15 +60,21 @@ async def chat(question: str, history: list = None):
     return aresult['response']
 
 
-async def generate_answer(question: str, documents: list[Document], history: list = None) -> list[Document]:
+async def generate_answer(question: str, documents_in: list[Document], history: list = None) -> list[Document]:
     """
     Generate the final answer of the agent in a question-answering cycle.
     """
     if history is None:
         history = []
 
+    formatted_docs = "\n\n".join(
+        [f"Document {i + 1}:\n{doc.page_content}" for i, doc in enumerate(documents_in)]
+    )
+
     print("===================")
     print(history)
+    print("===================")
+    print(formatted_docs)
     print("===================")
 
     prompt = (f'<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
@@ -79,15 +85,16 @@ async def generate_answer(question: str, documents: list[Document], history: lis
               'If previous conversation history exists, reference it in your answer. If there is just user question, you must ignore it. '
               '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Question: {question}. \n\n'
-              f'Context: {documents}. \n\n'
+              f'Context: \n\n'
+              f' {formatted_docs}. \n\n'
               f'History of previous conversations (if available): {history} \n\n'
-              'Answer: '
+              # 'Answer: '
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
     # async & .generate
     start_time = time.time()
     aresult = await ollama_aclient.generate(
-        model=c.ll_model,
+        model=llm,
         prompt=prompt,
         # format="json",
         # options=opt,
@@ -101,6 +108,9 @@ async def generate_answer(question: str, documents: list[Document], history: lis
     print(f"Async request timing client-server is: {elapsed_time:.2f} sec")
     print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
     #
-    print("aresult['response'] type is: ", type(aresult))
+
     print("aresult['response']: ", aresult['response'])
+    # print('aresult["context"]: ',aresult["context"])
+    print('aresult["model"]: ', aresult["model"])
+
     return aresult['response']
