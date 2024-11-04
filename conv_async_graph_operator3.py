@@ -42,6 +42,8 @@ _ = load_dotenv()
 
 class AgentState(TypedDict):
     question: str
+    # enhanced_question: str
+    # exact_word: str
     generation: str
     web_search: str
     collection_name_1: str  # Пробуем в связи с необходимостью использовать разные модели и разные способы добавления данных (рус/eng)
@@ -86,6 +88,26 @@ async def route_question(state: AgentState):
     elif source["datasource"] == "exit":
         print("---ROUTE TO TERMINATE THE SESSION---")
         return "exit"
+
+
+async def focus_question(state: AgentState):
+    """"""
+    print("---FOCUS QUESTION---")
+    question = state["question"]
+    print("Вопрос от пользователя для фокусировки: ", question)
+    enhanced_result = await formulate.extract_keyword(question)
+    print("Сокращенная формулировка: ", enhanced_result)
+    return {"question": enhanced_result}
+
+
+async def extend_question(state: AgentState):
+    """"""
+    print("---FORMULATE QUESTION---")
+    question = state["question"]
+    print("Вопрос от пользователя для формулировки: ", question)
+    enhanced_result = await formulate.formulate(question)
+    print("Улучшенная формулировка: ", enhanced_result)
+    return {"question": enhanced_result}
 
 
 async def retrieve_vs_1(state: AgentState):
@@ -203,8 +225,9 @@ async def grade_documents(state: AgentState):
         state (dict): Filtered out irrelevant documents and updated web_search state.
     """
 
-    print("---CHECK DOCUMENT RELEVANCE TO QUESTION---")
-    question = state["question"]
+    print("---CHECK DOCUMENT RELEVANCE TO formulated QUESTION---")
+    question = await formulate.formulate(state["question"])
+    print("Улучшенный вопрос для поиска соответствия в найденном тексте: ", question)
     documents = state["documents"]
 
     # Score each doc
@@ -246,8 +269,6 @@ def decide_to_generate(state: AgentState):
         str: Binary decision for next node to call
     """
 
-    # ToDo: проверить логику работы
-
     print("---ASSESS GRADED DOCUMENTS---")
 
     web_search = state["web_search"]
@@ -276,7 +297,6 @@ def decide_to_generate(state: AgentState):
             f"STARTING SEARCH NEXT COLLECTION. "
             f"Attempts: {attempt_counter}---"
         )
-        # state["collection_name_3"] = "txt-side-eff-cosine-sbert_large_nlu_ru"
         return "retrieve_next_2"
 
     elif web_search == "yes" and attempt_counter == 3:
@@ -310,22 +330,23 @@ async def generate_final(state: AgentState):
     print("---GENERATE answer using RAG or WEB SEARCH---")
     question = state["question"]
     documents = state["documents"]
-    generation: list[Document] = []
-    history = state["history"]
+    # generation: list[Document] = []
+    generation: str = ""
+    # history = state["history"]
     # print("==== документы, на основании которых будет генерация ======")
     # for document in documents:
     #     print(document)
     # print("==========")
     # Потенциальное избавление от циклических ссылок
-    history_copy = copy.deepcopy(history)
+    # history_copy = copy.deepcopy(history)
 
     try:
         # generation based on RAG or WEB_Search tool
-        generation = await generate.generate_answer(question, documents, history_copy)
+        generation = await generate.generate_answer(question, documents, )
     except Exception as e:
         print("Ошибка получения данных: ", e)
 
-    return {"documents": documents, "question": question, "generation": generation, "history": history}
+    return {"documents": documents, "question": question, "generation": generation, }
 
 
 async def chat(state: AgentState):
@@ -411,6 +432,8 @@ class Agent:
         graph = StateGraph(AgentState)
 
         graph.add_node("websearch", web_search)  # web search
+        graph.add_node("focus", focus_question)  # выделение главного слова в формулировке запроса к базе данных
+        # graph.add_node("extend", extend_question)  # переформулирование и улучшение вопроса
         graph.add_node("retrieve_vs_1", retrieve_vs_1)  # retrieve from Chroma vector store mmr only
         graph.add_node("retrieve_vs_2", retrieve_vs_2)  # retrieve from Chroma DB vector search
         graph.add_node("retrieve_db_3", retrieve_db_3)  # retrieve from Chroma DB vector search with sbert model
@@ -423,12 +446,13 @@ class Agent:
             route_question,
             {
                 "websearch": "websearch",
-                "vectorstore": "retrieve_vs_1",
+                # "vectorstore": "retrieve_vs_1",
+                "vectorstore": "focus",
                 "chat": "chat",
                 "exit": END,
             },
         )
-
+        graph.add_edge("focus", "retrieve_vs_1")  # добавляем ребро улучшения запроса
         graph.add_edge("retrieve_vs_1", "grade_documents")
 
         # добавим еще одну ветку, связанную с последовательным перебором коллекций перед переходом на
@@ -456,7 +480,7 @@ class Agent:
                 "not supported": "generate",
                 "useful": END,
                 # "not useful": "websearch",
-                "not useful": "retrieve_vs_2",
+                "not useful": "retrieve_db_3",
             },
         )
         graph.add_edge("chat", END)

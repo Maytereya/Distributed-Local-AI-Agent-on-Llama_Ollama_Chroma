@@ -37,7 +37,7 @@ async def route(question: str):
         prompt=prompt,
         # format="json",
         # options=opt,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 

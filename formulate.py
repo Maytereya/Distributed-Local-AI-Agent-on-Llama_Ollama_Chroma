@@ -46,14 +46,14 @@ async def formulate(question: str, ):
         prompt=prompt,
         # format="json",
         options=options,
-        keep_alive=-1,
+        # keep_alive=-1,
 
     )
 
     print(f"Eval_duration of answer generation: {aresult['eval_duration'] / 1_000_000_000}")
     #
-    print("Формулировка: ")
-    print(aresult['response'])
+    # print("Формулировка: ")
+    # print(aresult['response'])
     return aresult['response']
 
 

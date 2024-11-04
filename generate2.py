@@ -8,7 +8,7 @@ import json_converter as j
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Выбор llm
-llm = c.ll_model
+llm = c.ll_model_llama31_70b_instruct_q8
 
 
 # Post-processing
@@ -60,19 +60,19 @@ async def chat(question: str, history: list = None):
     return aresult['response']
 
 
-async def generate_answer(question: str, documents_in: list[Document], history: list = None) -> list[Document]:
+async def generate_answer(question: str, documents_in: list[Document], ) -> str: # list[Document]:
     """
     Generate the final answer of the agent in a question-answering cycle.
     """
-    if history is None:
-        history = []
+    # if history is None:
+    #     history = []
 
     formatted_docs = "\n\n".join(
         [f"Document {i + 1}:\n{doc.page_content}" for i, doc in enumerate(documents_in)]
     )
 
-    print("===================")
-    print(history)
+    # print("===================")
+    # print(history)
     print("===================")
     print(formatted_docs)
     print("===================")
@@ -82,12 +82,12 @@ async def generate_answer(question: str, documents_in: list[Document], history: 
               'Use the following retrieved information to generate a concise, plain-text response. '
               'If you do not know the answer, simply state that you do not know. '
               'Limit your response to a maximum of six sentences. '
-              'If previous conversation history exists, reference it in your answer. If there is just user question, you must ignore it. '
-              '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+              # 'If previous conversation history exists, reference it in your answer. If there is just user question, you must ignore it. '
+              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Question: {question}. \n\n'
               f'Context: \n\n'
               f' {formatted_docs}. \n\n'
-              f'History of previous conversations (if available): {history} \n\n'
+              # f'History of previous conversations (if available): {history} \n\n'
               # 'Answer: '
               '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
