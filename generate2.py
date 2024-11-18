@@ -8,7 +8,7 @@ import json_converter as j
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
 # Выбор llm
-llm = c.ll_model_llama31_70b_instruct_q8
+llm = c.ll_model_small
 
 
 # Post-processing
@@ -60,7 +60,7 @@ async def chat(question: str, history: list = None):
     return aresult['response']
 
 
-async def generate_answer(question: str, documents_in: list[Document], ) -> str: # list[Document]:
+async def generate_answer(question: str, documents_in: list[Document], ) -> str:  # list[Document]:
     """
     Generate the final answer of the agent in a question-answering cycle.
     """
@@ -71,17 +71,19 @@ async def generate_answer(question: str, documents_in: list[Document], ) -> str:
         [f"Document {i + 1}:\n{doc.page_content}" for i, doc in enumerate(documents_in)]
     )
 
-    # print("===================")
-    # print(history)
+    print("===================")
+    print(question)
     print("===================")
     print(formatted_docs)
     print("===================")
 
     prompt = (f'<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
-              'You are an assistant tasked with answering user questions based on the provided context. '
-              'Use the following retrieved information to generate a concise, plain-text response. '
-              'If you do not know the answer, simply state that you do not know. '
-              'Limit your response to a maximum of six sentences. '
+              'You are an assistant tasked with answering user questions based on relevant context retrieved from a vector database. '
+              'The context provided consists of documents found based on their similarity to the question. If multiple '
+              'documents are available, select the most relevant one and generate your response based on that document. '
+              'Use the information provided to create a clear and concise response in plain text.'
+              'If you do not know the answer, simply respond with "I do not know" without any explanations!'
+              # 'Limit your response to a maximum of six sentences.'
               # 'If previous conversation history exists, reference it in your answer. If there is just user question, you must ignore it. '
               # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
               f'Question: {question}. \n\n'

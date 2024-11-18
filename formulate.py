@@ -8,7 +8,7 @@ ollama_aclient = AsyncClient(host=c.ollama_url)
 options = Options(temperature=1, )
 
 # Выбор llm
-llm = c.ll_model_llama31_70b_instruct_q8
+llm = c.ll_model_small
 
 
 async def formulate(question: str, ):

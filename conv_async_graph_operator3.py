@@ -16,6 +16,7 @@ from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 import warnings
 
+
 # R Project modules:
 import generate2 as generate
 import check
@@ -23,6 +24,7 @@ import routing2 as route
 import aretrieve3 as retrieve
 import search
 import formulate
+import embedding_filtration as filtration
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
@@ -224,33 +226,36 @@ async def grade_documents(state: AgentState):
     Returns:
         state (dict): Filtered out irrelevant documents and updated web_search state.
     """
+    print("---FILTRATE DOCUMENTS by Cosine Similarity---")
+    filtered_documents = filtration.filtrate(state["question"], state["documents"])
+    print("Количество отфильтрованных документов: ", len(filtered_documents))
+
+    question = await formulate.formulate(state["question"])
+    print("Formulated QUESTION: ", question)
+    # documents = state["documents"]
 
     print("---CHECK DOCUMENT RELEVANCE TO formulated QUESTION---")
-    question = await formulate.formulate(state["question"])
-    print("Улучшенный вопрос для поиска соответствия в найденном тексте: ", question)
-    documents = state["documents"]
-
     # Score each doc
-    filtered_docs = []
+    scored_filtered_docs = []
     web_search = "yes"  # Устанавливаем значение "yes" по умолчанию
 
-    if documents is not None:
-        for d in documents:
+    if filtered_documents is not None:
+        for d in filtered_documents:
             score = await check.grade(question=question, document=d.page_content)
             grade = score["score"]
 
             if grade.lower() == "yes":
                 print("---GRADE: DOCUMENT RELEVANT---")
-                filtered_docs.append(d)
+                scored_filtered_docs.append(d)
                 # Как только найден релевантный документ, устанавливаем web_search в "no"
                 web_search = "no"
             else:
                 print("---GRADE: DOCUMENT NOT RELEVANT---")
 
     else:
-        print("Document was not given, maybe because of connection error")
+        print("Document was not given, maybe because of connection error or total filtration")
 
-    return {"documents": filtered_docs, "question": question, "web_search": web_search}
+    return {"documents": scored_filtered_docs, "question": question, "web_search": web_search}
 
 
 # ! sync
@@ -528,7 +533,7 @@ async def run_agent(agent: Agent, inputs):
     # Асинхронная обработка графа
     async for output in app.astream(inputs):
         for key, value in output.items():
-            pprint(f"Finished running node: {key}")
+            pprint(f"Закончено выполнение узла: {key}")
     # Возвращаем сгенерированный ответ
     return value["generation"]
 

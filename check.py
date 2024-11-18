@@ -5,6 +5,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 
 import config as c  # Here are all ip, llm names and other important things
+
 import time
 from ollama import AsyncClient, Options
 from langchain_ollama import \
@@ -18,7 +19,7 @@ ollama_aclient = AsyncClient(host=c.ollama_url)
 options = Options(temperature=0, )
 
 # Выбор llm
-llm = c.ll_model
+llm = c.ll_model_small
 
 
 async def grade(question: str, document: str):
@@ -28,7 +29,7 @@ async def grade(question: str, document: str):
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
               'You are tasked with assessing the relevance of a retrieved document to a user’s question. '
               'If the document contains concepts or keywords closely related to the user’s question, consider it relevant. '
-              'The assessment does not need to be overly strict—the aim is to filter out irrelevant documents, not to demand exact matches. '
+              # 'The assessment does not need to be overly strict—the aim is to filter out irrelevant documents, not to demand exact matches. '
               'Return a binary "yes" or "no" to indicate whether the document is relevant. '
               'Provide your answer as a JSON object with a single key "score" and no additional text. '
               'Example: {"score": "yes"} or {"score": "no"}.'
@@ -146,7 +147,7 @@ async def hallucinations_checker_v2(documents, generation):
     hallucination_grader.invoke({"documents": documents, "generation": generation})
 
 
-async def answer_grader(question: str, generation):
+async def answer_grader(question: str, generation: str):
     """Answer Grader"""
 
     # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
@@ -158,14 +159,41 @@ async def answer_grader(question: str, generation):
     #           f'Here is the question: \n\n{question} \n\n'
     #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
-              'You are evaluating if a generated answer addresses the given question. Provide a binary score: "yes" if the answer addresses the question directly and "no" if it does not. '
-              'Return the score as JSON with a single key "score" only, with no preamble, explanation, or extra text. '
-              'Example: {"score": "yes"} or {"score": "no"}. '
-              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
-              f'Here is the generated answer: \n\n{generation} \n\n'
-              f'Here is the question: \n\n{question} \n\n'
-              '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+    # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
+    #           'You are evaluating whether a generated answer addresses the given question. '
+    #           'Provide a binary score: "yes" if the answer directly addresses the question, and "no" if it does not.'
+    #           'Important: If the generated answer is "I do not know", assign it a score of "yes" as this response '
+    #           'indicates that the question has been addressed. Return only the score as JSON with a single key "score" '
+    #           'and no additional text or explanation. Examples: {"score": "yes"} or {"score": "no"}.'
+    #
+    #           # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+    #           f'Here is the generated answer: \n\n{generation} \n\n'
+    #           f'Here is the question: \n\n{question} \n\n'
+    #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+
+    # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
+    #           'You are evaluating whether a generated answer addresses the given question. '
+    #           'Provide a binary score: "yes" if the answer contains keywords from question, and "no" in all other cases.'
+    #           'Important: If the generated answer is "I do not know", assign it a score of "yes" as this response '
+    #           'indicates that the question has been addressed. Return only the score "yes" or "no" as JSON with a '
+    #           'single key "score"'
+    #           'and no additional text or explanation. Examples: {"score": "yes"} or {"score": "no"}.'
+    #
+    #           # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
+    #           f'Here is the generated answer: \n\n{generation} \n\n'
+    #           f'Here is the question: \n\n{question} \n\n'
+    #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+
+    prompt = ('''<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are evaluating whether a generated answer addresses the given question. 
+                  Provide a binary score: "yes" if the answer contains keywords from question, and "no" in all other cases.
+                  Important: If the generated answer is "I do not know", assign it a score of "yes" as this response indicates that the question has been addressed.
+                  Return only the score "yes" or "no" as JSON with a single key "score" and no additional text or explanation.
+                  Examples: {"score": "yes"} or {"score": "no"}. 
+                  <|eot_id|><|start_header_id|>user<|end_header_id|> 
+                  Here is the generated answer: \n\n{generation} \n\n
+                  Here is the question: \n\n{question} \n\n
+                  <|eot_id|><|start_header_id|>assistant<|end_header_id|>
+    ''')
 
     # async & .generate
     start_time = time.time()
