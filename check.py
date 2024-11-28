@@ -1,31 +1,42 @@
+# Check hallucinations module v 1.0
+
 import json
 from langchain_core.documents import Document
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 
-import config as c  # Here are all ip, llm names and other important things
+import config as c  # Stores IP, LLM names, and other configuration settings
 
 import time
 from ollama import AsyncClient, Options
 from langchain_ollama import \
-    ChatOllama  # Пробуем альтернативный способ указать температуру и использовать JSONOutputParser
+    ChatOllama  # Used for managing temperature and JSONOutputParser
 import json_converter as j
 
+# Initialize Ollama async client
 ollama_aclient = AsyncClient(host=c.ollama_url)
 
-# Пробуем еще раз опции добавить, авось не понизит скорость.
-# options = Options(temperature=0, num_ctx=128000)
-options = Options(temperature=0, )
+# Setting LLM options
+# options = Options(temperature=0, num_ctx=128000)  # Higher context length, might slow performance
+options = Options(temperature=0, )  # Default settings for generation
 
-# Выбор llm
+# Selecting the model to use
 llm = c.ll_model_small
 
 
 async def grade(question: str, document: str):
     """
-    Grade the relevance of the retrieved document.
+    Assess the relevance of a retrieved document to a user's question.
+
+    The function evaluates whether the given document is relevant to the user's question.
+    It returns the result as a JSON object with a single key "score" having the value "yes" or "no".
+
+    :param question: The user's question to evaluate against.
+    :param document: The retrieved document to assess.
+    :return: A JSON object indicating the relevance of the document.
     """
+
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
               'You are tasked with assessing the relevance of a retrieved document to a user’s question. '
               'If the document contains concepts or keywords closely related to the user’s question, consider it relevant. '
@@ -64,7 +75,16 @@ async def grade(question: str, document: str):
 
 
 async def hallucinations_checker(documents_in: list[Document], generation):
-    """Hallucination Grader"""
+    """
+    Check if the generated answer is grounded in the provided facts.
+
+    This function evaluates whether the generated response is supported by a list of documents.
+    It returns a JSON object with a single key "score" having the value "yes" or "no".
+
+    :param documents_in: A list of Document objects to evaluate against.
+    :param generation: The generated response to verify.
+    :return: A JSON object indicating whether the answer is grounded in the provided facts.
+    """
 
     # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
     #           'You are a grader assessing whether an answer is grounded in / supported by a set of facts, which are in Russian. '
@@ -116,17 +136,23 @@ async def hallucinations_checker(documents_in: list[Document], generation):
 
     json_result = j.str_to_json(aresult['response'])
     print("Module Check. Hallucinations checker response: " + aresult['response'])
-    print("Module Check. Hallucinations checker answer length JSON: " + str(len(json.dumps(json_result))))
-    print("Module Check. Hallucinations checker answer length str: " + str(len(aresult['response'])))
+
+    # Handle cases where response length is unexpected
     if len(json.dumps(json_result)) != 16:
         json_result = j.str_to_json('{"score": "no"}')
 
     return json_result
-    # return aresult['response']
 
 
 async def hallucinations_checker_v2(documents, generation):
-    """Hallucination Grader"""
+    """
+    A variant of hallucinations_checker using ChatOllama and JsonOutputParser.
+
+    :param documents: A string containing facts to evaluate against.
+    :param generation: The generated response to verify.
+    :return: None (directly uses the prompt to check hallucination grading).
+    """
+
     loc_llm = ChatOllama(model=llm, format="json", temperature=0, )
 
     # Prompt
@@ -148,7 +174,16 @@ async def hallucinations_checker_v2(documents, generation):
 
 
 async def answer_grader(question: str, generation: str):
-    """Answer Grader"""
+    """
+    Assess the usefulness of a generated answer to a given question.
+
+    The function evaluates whether the answer resolves the question effectively.
+    It returns a JSON object with a single key "score" having the value "yes" or "no".
+
+    :param question: The user's question to evaluate against.
+    :param generation: The generated response to assess.
+    :return: A JSON object indicating whether the answer addresses the question.
+    """
 
     # prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
     #           'You are a grader assessing whether an answer is useful to resolve a question. Give a binary score "yes" or "no" to indicate whether the answer is useful to resolve a question. '
@@ -216,4 +251,3 @@ async def answer_grader(question: str, generation: str):
     print("Module Check. Answer grader response: " + str(json_result))
 
     return json_result
-    # return aresult['response']
