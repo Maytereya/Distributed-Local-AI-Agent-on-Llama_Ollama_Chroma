@@ -37,18 +37,18 @@ async def grade(question: str, document: str) -> Optional[Dict[str, str]]:
     :return: A JSON object indicating the relevance of the document.
     """
 
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '
-              'You are tasked with assessing the relevance of a retrieved document to a user’s question. '
-              'If the document contains concepts or keywords closely related to the user’s question, consider it relevant. '
-              # 'The assessment does not need to be overly strict—the aim is to filter out irrelevant documents, not to demand exact matches. '
-              'Return a binary "yes" or "no" to indicate whether the document is relevant. '
-              'Provide your answer as a JSON object with a single key "score" and no additional text. '
-              'Example: {"score": "yes"} or {"score": "no"}.'
-              f'Here is the retrieved document: \n\n{document} \n\n'
-              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
-              # f' I need to know about: {question} \n\n'
-              f'Here is the user question: {question} \n\n'
-              '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+    prompt = (f'''<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+              You are tasked with assessing the relevance of a retrieved document to a user’s question.
+              If the document contains concepts or keywords closely related to the user’s question, consider it relevant.
+              The assessment does not need to be overly strict. 
+              The aim is to filter out irrelevant documents, not to demand exact matches.
+              Return a binary "yes" or "no" to indicate whether the document is relevant.
+              Provide your answer as a JSON object with a single key "score" and no additional text.
+              Example: {{"score": "yes"}} or {{"score": "no"}}.
+              Here is the retrieved document: \n\n{document} \n\n
+              <|eot_id|><|start_header_id|>user<|end_header_id|>
+              Here is the user question: {question} \n\n
+              <|eot_id|><|start_header_id|>assistant<|end_header_id|>''')
 
     # async & .generate
     start_time = time.time()
@@ -101,20 +101,19 @@ async def hallucinations_checker(documents_in: list[Document], generation: str) 
         [f"Document {i + 1}:\n{doc.page_content}" for i, doc in enumerate(documents_in)]
     )
 
-    prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing whether '
-              'an answer is grounded in / supported by a set of facts. Give a binary "yes" or "no" score to indicate '
-              'whether the answer is grounded in / supported by a set of facts. Provide the binary score as a JSON with a '
-              'single key "score" and no preamble or explanation. '
-              'If the answer is supported by the set of facts, return {"score": "yes"}. If it is not, '
-              'return {"score": "no"}.'
-              # '<|eot_id|><|start_header_id|>user<|end_header_id|> '
-              'Here are the facts:'
-              '\n ------- \n'
-              f'{formatted_docs} '
-              '\n ------- \n'
-              f'Here is the answer: '
-              f'\n ------- \n'
-              f'{generation} <|eot_id|><|start_header_id|>assistant<|end_header_id|>')
+    prompt = (f'''<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are a grader assessing whether
+              an answer is grounded in / supported by a set of facts. Give a binary "yes" or "no" score to indicate
+              whether the answer is grounded in / supported by a set of facts. 
+              Provide the binary score as a JSON with a single key "score" and no preamble or explanation.
+              If the answer is supported by the set of facts, return {{"score": "yes"}}. If it is not,
+              return {{"score": "no"}}.
+              Here are the facts:
+              \n ------- \n
+              {formatted_docs}
+              \n ------- \n
+              Here is the answer:
+              \n ------- \n
+              {generation} <|eot_id|><|start_header_id|>assistant<|end_header_id|>''')
 
     # async & .generate
     start_time = time.time()
@@ -223,12 +222,12 @@ async def answer_grader(question: str, generation: str) -> Optional[Dict[str, st
                   Provide a binary score: "yes" if the answer contains keywords from question, and "no" in all other cases.
                   Important: If the generated answer is "I do not know", assign it a score of "yes" as this response indicates that the question has been addressed.
                   Return only the score "yes" or "no" as JSON with a single key "score" and no additional text or explanation.
-                  Examples: {"score": "yes"} or {"score": "no"}. 
+                  Examples: {{"score": "yes"}} or {{"score": "no"}}. 
                   <|eot_id|><|start_header_id|>user<|end_header_id|> 
                   Here is the generated answer: \n\n{generation} \n\n
                   Here is the question: \n\n{question} \n\n
                   <|eot_id|><|start_header_id|>assistant<|end_header_id|>
-    ''')
+    ''')  # different way to shield: .format(generation=generation, question=question)
 
     # async & .generate
     start_time = time.time()
