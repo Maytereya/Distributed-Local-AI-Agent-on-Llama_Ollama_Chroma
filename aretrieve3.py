@@ -1,4 +1,4 @@
-#Async Retriever From Chroma DB v 3.0
+#Async Retriever for Chroma DB v 3.0
 
 # Model loading for embeddings
 # from InstructorEmbedding import INSTRUCTOR
@@ -130,49 +130,57 @@ class ChromaService:
 
 class HuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
     """
-    Only for Chroma server database.
-    For Chroma vectorstore, use the string model name specified.
-    Warning! Default model for embeddings is cointegrated/LaBSE-en-ru.
-    to change the model to RUS SBERT choose model: sbert.
+    A custom embedding function for Chroma server database.
+
+    This class allows embedding documents using a pre-selected HuggingFace model.
+    Note:
+    - Default embedding model is "cointegrated/LaBSE-en-ru".
+    - To switch to a different model (e.g., "sbert"), specify it using the `set_model` method.
     """
 
     def set_model(self, model: Literal["distiluse", "sbert", "instructor", "default"] = "default"):
         """
         Set the model to be used for embedding.
-        :param model: Model name to use for embedding, options are "distiluse", "sbert", "instructor", or "default".
+
+        :param model: The name of the model to use for embeddings. Options: "distiluse", "sbert", "instructor", or "default".
         """
         self._model = choose_model(model)
 
     def __call__(self, input: Documents) -> Embeddings:
         """
-        Embed the input documents using the pre-selected sentence transformer model.
-        :param input: LangChain Document list.
-        :return: Python list of embeddings.
+        Embed the input documents using the pre-selected model.
+
+        :param input: A list of LangChain Document objects to embed.
+        :return: A list of embeddings in Python list format.
         """
         if not hasattr(self, '_model'):
-            # If the model hasn't been set, use default
+            # Use the default model if none has been set
             self._model = choose_model("default")
 
-        # Convert the numpy array to a Python list
+        # Convert numpy array to Python list
         return self._model.encode(input, show_progress_bar=True, ).tolist()
 
 
 def web_txt_splitter(add_urls) -> List[Document]:
     """
-    Split the web documents into list of Document
+    Split web documents into smaller chunks for processing.
 
+    :param add_urls: A list of URLs to fetch and split into chunks.
+    :return: A list of Document objects containing the split text.
     """
+
     doc_splits: List[Document] = []
-    if add_urls:  # Check the list is not empty
+    if add_urls:  # Ensure the URL list is not empty
         docs = []
         for url in add_urls:
             loaded_docs = WebBaseLoader(url).load()
             if loaded_docs:
                 docs.append(loaded_docs)
 
+        # Flatten the list of loaded documents
         docs_list = [item for sublist in docs for item in sublist]
 
-        if docs_list:  # Check the docs_list is not empty
+        if docs_list:  # Ensure the document list is not empty
             text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
                 chunk_size=1000, chunk_overlap=100
             )
@@ -188,9 +196,12 @@ def web_txt_splitter(add_urls) -> List[Document]:
 
 def txt_loader(path: str = "Upload/") -> List[Document]:
     """
-    Load & Split the txt documents into list of Document
+    Load and split text files from a directory into chunks.
 
+    :param path: The directory path containing text files to load.
+    :return: A list of Document objects with the split text.
     """
+
     split_docs: List[Document] = []
     text_loader_kwargs = {"autodetect_encoding": True}
 
@@ -199,7 +210,7 @@ def txt_loader(path: str = "Upload/") -> List[Document]:
                              loader_kwargs=text_loader_kwargs)
     docs = loader.load()
 
-    if docs:  # Check the list is not empty
+    if docs:  # Ensure the list is not empty
         text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             chunk_size=3500, chunk_overlap=800
         )
@@ -213,22 +224,25 @@ def txt_loader(path: str = "Upload/") -> List[Document]:
 
 def pdf_loader(path: str) -> List[Document]:
     """
-    Load and split PDF by page with page number and path metadata
+    Load and split a PDF document by pages, retaining page number and path metadata.
 
+    :param path: The file path of the PDF document to load.
+    :return: A list of Document objects containing the split pages.
     """
+
     docs = []
     loader = PyPDFLoader(path)
     docs_lazy = loader.lazy_load()
 
-    # Инициализация счётчика
+    # Step counter
     step = 0
 
     for doc in docs_lazy:
-        step += 1  # Увеличиваем счётчик на каждом шаге
-        print(f"\rШаг {step}: обработка страницы...", end='', flush=True)
+        step += 1  # Increment step for each page processed
+        print(f"\rStep {step}: Processing page...", end='', flush=True)
         docs.append(doc)
 
-    print("\nВсе страницы обработаны!")
+    print("\nAll pages have been processed.")
 
     return docs
 
