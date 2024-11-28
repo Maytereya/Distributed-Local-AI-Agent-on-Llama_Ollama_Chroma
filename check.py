@@ -2,7 +2,7 @@
 
 import json
 from langchain_core.documents import Document
-
+from typing import Dict, Optional
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 
@@ -25,7 +25,7 @@ options = Options(temperature=0, )  # Default settings for generation
 llm = c.ll_model_small
 
 
-async def grade(question: str, document: str):
+async def grade(question: str, document: str) -> Optional[Dict[str, str]]:
     """
     Assess the relevance of a retrieved document to a user's question.
 
@@ -74,7 +74,7 @@ async def grade(question: str, document: str):
     return json_result
 
 
-async def hallucinations_checker(documents_in: list[Document], generation):
+async def hallucinations_checker(documents_in: list[Document], generation: str) -> Optional[Dict[str, str]]:
     """
     Check if the generated answer is grounded in the provided facts.
 
@@ -173,7 +173,7 @@ async def hallucinations_checker_v2(documents, generation):
     hallucination_grader.invoke({"documents": documents, "generation": generation})
 
 
-async def answer_grader(question: str, generation: str):
+async def answer_grader(question: str, generation: str) -> Optional[Dict[str, str]]:
     """
     Assess the usefulness of a generated answer to a given question.
 
@@ -219,7 +219,7 @@ async def answer_grader(question: str, generation: str):
     #           f'Here is the question: \n\n{question} \n\n'
     #           '<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
 
-    prompt = ('''<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are evaluating whether a generated answer addresses the given question. 
+    prompt = (f'''<|begin_of_text|><|start_header_id|>system<|end_header_id|> You are evaluating whether a generated answer addresses the given question. 
                   Provide a binary score: "yes" if the answer contains keywords from question, and "no" in all other cases.
                   Important: If the generated answer is "I do not know", assign it a score of "yes" as this response indicates that the question has been addressed.
                   Return only the score "yes" or "no" as JSON with a single key "score" and no additional text or explanation.

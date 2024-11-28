@@ -1,28 +1,35 @@
+from typing import Dict, Optional, Any
 import json
-from typing import Dict, Optional
 import re
 
 
-def str_to_json(input_str: str) -> str:
+def str_to_json(input_str: str) -> Optional[Dict[str, Any]]:
+    """
+    Converts a JSON string to a Python dictionary, applying common error corrections.
+
+    :param input_str: The JSON string to convert.
+    :return: A dictionary representation of the JSON string, or None if conversion fails.
+    """
     try:
-        # Попытка сразу загрузить строку в формате JSON
+        # Attempt to load the string as JSON
         return json.loads(input_str)
     except json.JSONDecodeError:
-        # Обработка распространенных ошибок формата
+        # Handle common format errors
 
-        # Удаление лишних символов, таких как пробелы и переносы строк
+        # Remove leading/trailing whitespace and newlines
         input_str = input_str.strip()
 
-        # Замена одинарных кавычек на двойные
+        # Replace single quotes with double quotes
         input_str = input_str.replace("'", '"')
 
-        # Удаление обратных слешей перед кавычками, если такие есть
+        # Remove backslashes preceding quotes if any
         input_str = re.sub(r'\\(.)', r'\1', input_str)
 
-        # Повторная попытка загрузить JSON после исправлений
+        # Retry JSON loading after corrections
         try:
             return json.loads(input_str)
         except json.JSONDecodeError as e:
-            # Если строку все равно не удалось преобразовать, выводим сообщение об ошибке
-            print(f"Ошибка в конвертере: не получается преобразование строки в JSON: {e}")
+            # If the string still cannot be parsed, return None and print an error
+            print(f"Error in JSON converter: Unable to parse the string as JSON: {e}")
             return None
+
