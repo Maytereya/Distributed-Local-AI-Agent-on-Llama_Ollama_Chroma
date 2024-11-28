@@ -1,24 +1,23 @@
-# Загрузка модели для эмбеддингов
-#
+#Async Retriever From Chroma DB v 3.0
+
+# Model loading for embeddings
 # from InstructorEmbedding import INSTRUCTOR
 # i_model = INSTRUCTOR('hkunlp/instructor-large')
-import asyncio
+
 # model_only = "cointegrated/LaBSE-en-ru"
 # model_only = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2' # эффективность под вопросом
 # model_only = 'sentence-transformers/LaBSE'
-#
 # model_only = "sentence-transformers/distiluse-base-multilingual-cased-v1"
 
 
-# ==== Медицинские модели =====
+# ==== Medical models =====
 # model_only = "dmis-lab/biobert-v1.1"
 # model_only = "pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb"
 
-# ==== Русские модели =====
-# model_only = "DeepPavlov/rubert-base-cased" # Не работала.
+# ==== Russian models =====
 # model_only = "ai-forever/sbert_large_nlu_ru"
 
-
+import asyncio
 from typing import Literal, Optional, Union
 from chromadb.api.models.Collection import Collection
 from langchain_community.document_loaders import WebBaseLoader
@@ -35,14 +34,14 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import uuid
 from typing import List
 import warnings
-import config as c  # Here are all ip, llm names and other important things
+import config as c  # # Stores IP, LLM names, and other important configurations
 import formulate
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
 )
 
-# ini the chroma client
+# Initialize Chroma client
 chroma_client = chromadb.HttpClient(host=c.chroma_host, port=c.chroma_port)
 
 
@@ -75,10 +74,16 @@ def choose_model(model: Literal["distiluse", "sbert", "instructor", "default"] =
 
 
 class ChromaService:
+    """
+    A service class for managing Chroma DB operations.
+    """
     def __init__(self, host: str, port: int):
         self.chroma_client = chromadb.HttpClient(host=host, port=port)
 
     def info_chroma(self):
+        """
+        Print current Chroma version, collections count, and heartbeat - health satus of database.
+        """
         print("Chroma current version: " + str(self.chroma_client.get_version()))
         print("Collections count: " + str(self.chroma_client.count_collections()))
         print("Chroma heartbeat: " + str(round(self.chroma_client.heartbeat() / 3_600_000_000_000, 2)), " hours")
@@ -89,8 +94,8 @@ class ChromaService:
 
     def display_collections(self):
         """
-        Выводит список коллекций на экран
-        :return: List of collections
+        Display all collections stored in Chroma DB.
+        :return: List of collections on screen.
         """
         list_col = self.chroma_client.list_collections()
         for col in list_col:
@@ -101,13 +106,15 @@ class ChromaService:
             print("=============")
 
     def preconditioning(self, target_name: str):
-        """Подготавливаем условия для создания и использования коллекций. В данном случае, удаляем коллекцию,
-        если она уже существует"""
+        """
+        Prepare the conditions for creating and using collections by removing an existing collection if found.
+        :param target_name: The target collection name to check and reset if necessary.
+        """
         # Имя коллекции = target_name
         list_col = self.chroma_client.list_collections()
         found = False
         for col in list_col:
-            # Преобразуем объект в строку и находим значение name
+            # Convert the object to string and extract the name value
             name_part = str(col).split(", name=")[1].rstrip(")")
 
             if name_part == target_name:
