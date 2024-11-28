@@ -258,8 +258,5 @@ The code provides a framework for an agent that uses a state graph to handle use
 
 - The `grade_generation_v_documents_and_question` method checks whether the generated answer is correct and matches the query.
 
-## License
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
-
 ## Contact
 For any questions or contributions, feel free to open an issue or submit a pull request.
