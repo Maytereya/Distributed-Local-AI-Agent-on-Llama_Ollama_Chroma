@@ -1,4 +1,4 @@
-#Async Retriever for Chroma DB v 3.0
+# Async Retriever for Chroma DB v 3.0
 
 # Model loading for embeddings
 # from InstructorEmbedding import INSTRUCTOR
@@ -77,6 +77,7 @@ class ChromaService:
     """
     A service class for managing Chroma DB operations.
     """
+
     def __init__(self, host: str, port: int):
         self.chroma_client = chromadb.HttpClient(host=host, port=port)
 
@@ -189,7 +190,7 @@ def web_txt_splitter(add_urls) -> List[Document]:
         else:
             print("Loaded documents are empty.")
     else:
-        print("There are no web documents passed")
+        print("No web documents passed.")
 
     return doc_splits
 
@@ -215,9 +216,9 @@ def txt_loader(path: str = "Upload/") -> List[Document]:
             chunk_size=3500, chunk_overlap=800
         )
         split_docs = text_splitter.split_documents(docs)
-        print("Web document splitting done.")
+        print("Text document splitting done.")
     else:
-        print("There are no web documents passed")
+        print("No text documents found in the specified path.")
 
     return split_docs
 
@@ -247,32 +248,39 @@ def pdf_loader(path: str) -> List[Document]:
     return docs
 
 
-def handle_collection(existed_collection):
+def handle_collection(existed_collection: str):
+    """
+        Retrieve and display details of an existing Chroma DB collection.
+
+        :param existed_collection: The name of the existing collection to retrieve.
+    """
     collection = chroma_client.get_collection(name=existed_collection,
                                               embedding_function=HuggingFaceEmbeddingFunction())
     # peek = collection.peek()  # returns a list of the first 10 items in the collection
-    count = collection.count()  # returns the number of items in the collection
+    count = collection.count()  # Get the number of items in the collection
     print(f'the number of items in the collection: {count}')
-    # print(f'list of the first 10 items in the collection: {peek}')
 
 
-def create_collection(exist_collection_name,
-                      model: Literal["distiluse", "sbert", "default"] = "default") -> Collection | None:
+def create_collection(
+        exist_collection_name: str,
+        model: Literal["distiluse", "sbert", "default"] = "default"
+) -> Optional[Collection]:
     """
-    Создание коллекции с заданным именем
-    Optional metadata argument which can be used to customize the distance method of the embedding
-    space by setting the value of hnsw:space
+    Create a new collection in Chroma DB with the specified name.
 
-    Valid options for hnsw:space are "l2", "ip", or "cosine".
-    The default is "l2" which is the squared L2 norm.
+    :param exist_collection_name: The name of the new collection to create.
+    :param model: The embedding model to use for the collection. Default: "default" (LaBSE-en-ru).
+    :return: The created Collection object if successful, otherwise None.
     """
     embedding_function = HuggingFaceEmbeddingFunction()
-    embedding_function.set_model(model)  # И так установлено по умолчанию.
+    embedding_function.set_model(model)  # Set the embedding model.
 
     try:
-        chroma_collection = chroma_client.create_collection(name=exist_collection_name,
-                                                            embedding_function=embedding_function,
-                                                            metadata={"hnsw:space": "cosine"})
+        chroma_collection = chroma_client.create_collection(
+            name=exist_collection_name,
+            embedding_function=embedding_function,
+            metadata={"hnsw:space": "cosine"})  # Use cosine similarity as the default metric.
+
         if chroma_collection:
             print(f"Creating collection: {exist_collection_name}")
             return chroma_collection
@@ -280,59 +288,63 @@ def create_collection(exist_collection_name,
             print(f"Failed to create collection: {exist_collection_name}")
             return None
     except Exception as e:
-        print(f"An error occurred while creating the collection / Ошибка при создании коллекции: {e}")
+        print(f"An error occurred while creating the collection: {e}")
         return None
 
 
-def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], add_urls: Optional[list] = None,
-             add_path: Optional[str] = None, model: Literal["distiluse", "sbert", "instructor", "default"] = "default"):
+def add_data(
+        exist_collection_name: str,
+        upload_type: Literal["URL", "PDF", "TXT"],
+        add_urls: Optional[List[str]] = None,
+        add_path: Optional[str] = None,
+        model: Literal["distiluse", "sbert", "instructor", "default"] = "default"
+):
     """
+    Add data to an existing Chroma DB collection based on the upload type.
 
-    Добавляет данные в существующую коллекцию Chroma DB в зависимости от типа загрузки (URL или PDF).
-
-    :param model: Выбор между "LaBSE-en-ru" (по умолчанию), "sbert", "instructor", "distiluse".
-    :param exist_collection_name: Название существующей коллекции, в которую будут добавляться данные.
-    :param upload_type: Тип загружаемых данных. Должен быть указан как "URL" или "PDF".
-        - "URL": Загрузка текстовых данных по списку URL-адресов.
-        - "PDF": Загрузка данных из PDF-файла по указанному пути.
-    :param add_urls: Список URL-адресов для загрузки (только если upload_type = "URL").
-    :param add_path: Путь к PDF-файлу для загрузки (только если upload_type = "PDF").
-    :return: None. Функция выводит процесс загрузки и добавления данных в коллекцию на экран.
-    :raises Exception: Если возникает ошибка при загрузке данных или взаимодействии с коллекцией.
+    :param exist_collection_name: The name of the existing collection to which data will be added.
+    :param upload_type: The type of data to upload. Options:
+        - "URL": Load text data from a list of URLs.
+        - "PDF": Load data from a PDF file at the specified path.
+        - "TXT": Load data from text files in the specified directory.
+    :param add_urls: A list of URLs for loading documents (used if upload_type = "URL").
+    :param add_path: The file path or directory path for loading data (used for "PDF" or "TXT").
+    :param model: The embedding model to use. Options: "default" (LaBSE-en-ru), "sbert", "instructor", "distiluse".
     """
 
     print(f"Adding data to collection: {exist_collection_name}")
     docs = []
     try:
-        # Получаем документы
+        # Fetch documents
         if upload_type == "URL" and add_urls is not None:
-            print("Загружаем документ по URL")
+            print("Loading documents from URLs...")
             docs = web_txt_splitter(add_urls)
             if not docs:
-                print("No URL documents to process.")
+                print("No documents found at the specified URLs.")
                 return
 
         elif upload_type == "PDF" and add_path is not None:
-            print("Загружаем PDF-документ")
+            print("Loading PDF document...")
             docs = pdf_loader(add_path)
             if not docs:
-                print("No pdf documents to process.")
+                print("No content found in the PDF file.")
                 return
 
         elif upload_type == "TXT" and add_path is not None:
-            print("Загружаем TXT-документ")
+            print("Loading TXT documents...")
             docs = txt_loader(add_path)
             if not docs:
-                print("No txt documents to process.")
+                print("No text files found in the specified directory.")
                 return
 
         else:
-            print("Не переданы необходимые данные для загрузки.")
+            print("No valid data provided for upload.")
 
+        # Set embedding function
         embedding_function = HuggingFaceEmbeddingFunction()
         embedding_function.set_model(model)
 
-        # Получаем коллекцию
+        # Fetch the collection
         collection = chroma_client.get_collection(name=exist_collection_name,
                                                   embedding_function=embedding_function)
         if not collection:
@@ -343,15 +355,15 @@ def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], a
         print(f"Total chunks: {total_chunks}")
 
         for i, doc in enumerate(docs, start=1):
-            print(f"\rChunk cycles remain: {i}/{total_chunks}", end="", flush=True)
+            print(f"\rProcessing chunk: {i}/{total_chunks}", end="", flush=True)
             print()
-            print(f"ids: {str(uuid.uuid1())}")
-            print(f"metadatas: {doc.metadata}")
-            print(f"type: {doc.type}")
-            print(f"page_content: {doc.page_content[:10]}")
+            print(f"IDs: {str(uuid.uuid1())}")
+            print(f"Metadata: {doc.metadata}")
+            print(f"Type: {doc.type}")
+            print(f"Content preview: {doc.page_content[:10]}")
             try:
 
-                # Добавляем документы в коллекцию
+                # Add documents to the collection
                 collection.add(
                     ids=[str(uuid.uuid1())],
                     metadatas=doc.metadata,
@@ -360,27 +372,40 @@ def add_data(exist_collection_name, upload_type: Literal["URL", "PDF", "TXT"], a
             except Exception as e:
                 print(f"Failed to process document {i}/{total_chunks}: {e}")
 
-        print()  # Печатаем пустую строку в конце чтобы счетчик не переносился.
+        print()  # Print an empty line after processing all chunks
     except Exception as e:
         print(f"An error occurred while adding data: {e}")
 
 
 # :: Chroma DB ::
-def query_collection(existed_collection, question: str, contains: str = " ", n_results: int = 2,
-                     model: Literal["distiluse", "sbert", "instructor", "default"] = "default") -> Optional[
-    List[Document]]:
+def query_collection(
+        existed_collection: str,
+        question: str,
+        contains: str = " ",
+        n_results: int = 2,
+        model: Literal["distiluse", "sbert", "instructor", "default"] = "default"
+) -> Optional[List[Document]]:
+    """
+    Query a Chroma DB collection and return matching documents.
+
+    :param existed_collection: The name of the collection to query.
+    :param question: The query text to search for.
+    :param contains: A filter for documents containing this text.
+    :param n_results: The number of results to return.
+    :param model: The embedding model to use for the query.
+    :return: A list of matching Document objects.
+    """
     embedding_function = HuggingFaceEmbeddingFunction()
     embedding_function.set_model(model)
 
     collection = chroma_client.get_collection(name=existed_collection,
                                               embedding_function=embedding_function)
 
-    # print(f"Ответ на вопрос: '{question}'")
     result = collection.query(
         query_texts=question,
         n_results=n_results,
         # where={"metadata_field": "is_equal_to_this"},
-        where_document={"$contains": contains}
+        where_document={"$contains": contains}  # Filter documents containing the specified text.
     )
 
     # print("QUERY RESPONSE (def query_collection): ")
@@ -402,29 +427,33 @@ def query_collection(existed_collection, question: str, contains: str = " ", n_r
 
 
 # :: Chroma Vector Store ::
-def vs_query(existed_collection: str, question: str, search_type: Literal["simil", "simil_score", "vector", "mmr"],
-             model: Literal["distiluse", "sbert", "instructor", "default"] = "default", k: int = 3,
-             filters: dict = None, fetch_k: int = 25, lambda_mult: float = 0.85):
+def vs_query(
+        existed_collection: str,
+        question: str,
+        search_type: Literal["simil", "simil_score", "vector", "mmr"],
+        model: Literal["distiluse", "sbert", "instructor", "default"] = "default",
+        k: int = 3,
+        filters: dict = None,
+        fetch_k: int = 25,
+        lambda_mult: float = 0.85
+) -> List[Document]:
     """
-    Выполняет поиск по векторной базе данных с использованием различных типов поиска и выбранной модели эмбеддингов.
+    Perform a vector-based search in Chroma DB using various search types.
 
-    :param lambda_mult: Retrieve more documents with higher diversity (0.25). Lower diversity: 0.85. Useful if your dataset has many similar documents
-    :param fetch_k: Fetch more documents for the MMR algorithm to consider
-    :param existed_collection: Название существующей коллекции в Chroma DB, в которой выполняется поиск.
-    :param question: Вопрос или запрос, по которому выполняется поиск.
-    :param search_type: Тип поиска, который будет использован:
-        - "simil": Поиск по векторному сходству без оценки схожести.
-        - "simil_score": Поиск по векторному сходству с возвращением оценки схожести.
-        - "vector": Поиск по вектору запроса.
-        - "mmr": Поиск с использованием Maximal Marginal Relevance (MMR).
-    :param model: Название модели эмбеддингов, которая будет использована ("distiluse", "sbert", или "default").
-    :param k: Количество возвращаемых результатов (по умолчанию = 3).
-    :param filters: Словарь фильтров для ограничения поиска по метаданным. Если не указан, используется фильтр
-                    {"source": "pdf/side_effects_guidelines.pdf"}.
-    :return: Список документов, полученных в результате поиска.
-    :raises Exception: Если возникает ошибка во время выполнения поиска.
+    :param existed_collection: The name of the collection to search in.
+    :param question: The query text to search for.
+    :param search_type: The type of search to perform:
+        - "simil": Similarity search.
+        - "simil_score": Similarity search with scores.
+        - "vector": Search by embedding vector.
+        - "mmr": Maximal Marginal Relevance (MMR) search.
+    :param model: The embedding model to use for the query.
+    :param k: The number of results to return.
+    :param filters: Filters to apply during the search. Default: {"source": "pdf/side_effects_guidelines.pdf"}.
+    :param fetch_k: The number of documents to fetch for MMR.
+    :param lambda_mult: Adjusts diversity in MMR results (lower = less diverse).
+    :return: A list of Document objects containing the results.
     """
-    # print(f"Ответ на вопрос: {question}")
 
     documents: List[Document] = []
 
@@ -439,7 +468,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
             embedding_function=embedding_function,
         )
 
-        # Фильтр по умолчанию
+        # Default filter if none provided
         if filters is None:
             filters = {"source": "pdf/side_effects_guidelines.pdf"}
 
@@ -457,7 +486,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
                 k=k,
                 filter=filters,
             )
-            print("search_type = similarity")
+            print("Search type: similarity search")
             # print_results(documents)
 
         elif search_type == "simil_score":
@@ -466,7 +495,7 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
                 k=k,
                 filter=filters,
             )
-            print("search_type = similarity with score")
+            print("Search type: similarity search with scores")
             # print_results(results)
             documents = [
                 Document(page_content=doc.page_content, metadata=score)
@@ -477,24 +506,26 @@ def vs_query(existed_collection: str, question: str, search_type: Literal["simil
             documents = vector_store_from_client.similarity_search_by_vector(
                 embedding=embedding_function.embed_query(question), k=k
             )
-            print("search_type = search by vector")
+            print("Search type: search by vector")
             # print_results(documents)
 
         elif search_type == "mmr":
             retriever = vector_store_from_client.as_retriever(
-                search_type="mmr", search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": lambda_mult, "filters": filters}
+                search_type="mmr",
+                search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": lambda_mult, "filters": filters}
             )
-            print("search_type = mmr")
+            print("Search type: Maximal Marginal Relevance (MMR)")
             documents = retriever.invoke(question, )
             # print_results(documents)
 
     except Exception as e:
-        print(f"An error occurred while searching vector store (using def vs_query()): {e}")
+        print(f"An error occurred during vector store search using def vs_query(): {e}")
 
     return documents
 
-
-# Тестирование
+#
+# Test section
+#
 if __name__ == '__main__':
     print(':: TESTING ::')
 
