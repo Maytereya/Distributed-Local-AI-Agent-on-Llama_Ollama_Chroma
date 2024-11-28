@@ -1,11 +1,26 @@
-# Код lang_graph составлен как класс с учетом рекомендаций DeepLearning.ai (Harris)
-# v 6.0 "long logic"
-# Теперь это чат с логикой агента, расширенной на чат. Есть память в виде переменной history[]
-# Но память langGraph в этой реализации не используется.
-# Существенное изменение - добавление нативного ретривера поверх векторной базы данных Chroma DB
-# ollama embeddings в данной конфигурации не используется.
-# Пытаюсь удлинить логику работы узлов RAG с помощью i+
+"""
+This module implements a state-based conversational agent as a class,
+following the recommendations of DeepLearning.ai (Harris).
+It is designed as version 6.0, referred to as "long logic," and introduces extended functionality for chat interactions.
 
+Key Features:
+1. **Stateful Chat Logic**:
+   - Incorporates agent logic extended for chat-based applications.
+   - Maintains chat history through the `history[]` variable for enhanced context awareness.
+   - Note: The memory functionality of langGraph itself is not utilized in this implementation.
+
+2. **Native Retriever Integration**:
+   - Adds a native retriever layer on top of the Chroma DB vector database.
+   - Enhances retrieval capabilities for more dynamic and precise responses.
+
+3. **Ollama Embeddings**:
+   - Ollama embeddings are not used in this configuration.
+
+4. **Extended RAG Node Logic**:
+   - Attempts to extend the reasoning capability of RAG (Retrieval-Augmented Generation) nodes using `i+` techniques.
+   - Improves handling of complex queries and multistep reasoning.
+
+"""
 
 import asyncio
 import copy
@@ -15,7 +30,6 @@ from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 import warnings
-
 
 # R Project modules:
 import generate2 as generate
@@ -43,6 +57,19 @@ _ = load_dotenv()
 # ToDo: Проверить соответствие типов, чтобы не было List[str], List[Document] и Document там, где все д.б. List[Document]
 
 class AgentState(TypedDict):
+    """
+        Represents the state of the agent during conversation.
+
+        Attributes:
+            question (str): The user's question.
+            generation (str): The generated answer.
+            web_search (str): Indicates whether to perform a web search ("yes" or "no").
+            collection_name_1 (str): The name of the first collection for document retrieval.
+            collection_name_2 (str): The name of the second collection for document retrieval.
+            attempt_count (int): The number of attempts made to retrieve relevant documents.
+            history (list): The chat history, including user and assistant messages.
+            documents (Optional[List[Document]]): A list of retrieved documents.
+        """
     question: str
     # enhanced_question: str
     # exact_word: str
@@ -59,14 +86,13 @@ class AgentState(TypedDict):
 # Входная функция:
 async def route_question(state: AgentState):
     """
-    Эта функция определяет, куда направить вопрос: на веб-поиск,
-    векторное хранилище, в чат с памятью или окончание сессии (выход).
+    Routes the user's question to the appropriate module for further processing.
 
     Args:
-        state (dict): The current graph state
+        state (AgentState): The current state of the agent.
 
     Returns:
-        str: Next node to call
+        str: The next node to call based on the data source.
     """
 
     print("---ROUTE QUESTION---")
@@ -93,7 +119,15 @@ async def route_question(state: AgentState):
 
 
 async def focus_question(state: AgentState):
-    """"""
+    """
+    Extracts the main focus of the user's question.
+
+    Args:
+        state (AgentState): The current state of the agent.
+
+    Returns:
+        dict: A dictionary with the focused question.
+    """
     print("---FOCUS QUESTION---")
     question = state["question"]
     print("Вопрос от пользователя для фокусировки: ", question)
@@ -103,22 +137,32 @@ async def focus_question(state: AgentState):
 
 
 async def extend_question(state: AgentState):
-    """"""
+    """
+    Reformulates and improves the user's question.
+
+    Args:
+        state (AgentState): The current state of the agent.
+
+    Returns:
+        dict: A dictionary with the extended question.
+    """
     print("---FORMULATE QUESTION---")
     question = state["question"]
-    print("Вопрос от пользователя для формулировки: ", question)
+    print("User's question for reformulation: ", question)
     enhanced_result = await formulate.formulate(question)
-    print("Улучшенная формулировка: ", enhanced_result)
+    print("Enhanced formulation: ", enhanced_result)
     return {"question": enhanced_result}
 
 
 async def retrieve_vs_1(state: AgentState):
     """
-    Retrieve documents from Chroma Vector Store with high diversity of results
+    Retrieves documents from Chroma vector store with high diversity.
+
     Args:
-        state (dict): The current graph state
+        state (AgentState): The current state of the agent.
+
     Returns:
-        state (dict): New key added to state, documents, that contains retrieved documents
+        dict: Updated state with retrieved documents and the current question.
     """
 
     attempt_count = 1  # Инициализируем счетчик попыток обращения к RAG
@@ -129,10 +173,11 @@ async def retrieve_vs_1(state: AgentState):
 
     documents = retrieve.vs_query(existed_collection=state["collection_name_1"], question=state["question"],
                                   search_type="mmr", k=5, lambda_mult=0.25)
+
     print("---RETRIEVE FROM CHROMA Vector Store with high diversity of results---")
     question = state["question"]
     collection_name = state["collection_name_1"]
-    print("Вопрос: ", state["question"])
+    print("Question: ", state["question"])
     print("Collection name: ", collection_name)
     # for document in documents:
     #     print(document.page_content[:200])
@@ -187,13 +232,13 @@ async def retrieve_db_3(state: AgentState):
 # not async converted
 def web_search(state: AgentState):
     """
-    Эта функция выполняет веб-поиск на основе вопроса и добавляет результаты к документам.
+    Performs a web search and appends results to the list of documents.
 
     Args:
-        state (dict): The current graph state
+        state (AgentState): The current state of the agent.
 
     Returns:
-        state (dict): Appended web results to documents
+        dict: Updated state with web search results added to documents.
     """
 
     print("---TAVILY WEB SEARCH---")
@@ -209,8 +254,8 @@ def web_search(state: AgentState):
     else:
         documents = [web_results]
 
-    print("Вопрос: ", state["question"])
-    print("Ответ: ", docs)
+    print("Question: ", state["question"])
+    print("Web search result: ", docs)
 
     return {"documents": documents, "question": question}
 
@@ -324,13 +369,13 @@ def decide_to_generate(state: AgentState):
 # !
 async def generate_final(state: AgentState):
     """
-    Generate answer using RAG on retrieved documents
+    Generates an answer using RAG or web search results.
 
     Args:
-        state (dict): The current graph state
+        state (AgentState): The current state of the agent.
 
     Returns:
-        state (dict): New key added to state, generation, that contains LLM generation
+        dict: Updated state with the generated answer.
     """
     print("---GENERATE answer using RAG or WEB SEARCH---")
     question = state["question"]
@@ -349,7 +394,7 @@ async def generate_final(state: AgentState):
         # generation based on RAG or WEB_Search tool
         generation = await generate.generate_answer(question, documents, )
     except Exception as e:
-        print("Ошибка получения данных: ", e)
+        print("Error during generation: ", e)
 
     return {"documents": documents, "question": question, "generation": generation, }
 
@@ -379,13 +424,13 @@ async def chat(state: AgentState):
 # !
 async def grade_generation_v_documents_and_question(state: AgentState):
     """
-    Эта функция проверяет, основан ли ответ на документах и отвечает ли он на вопрос.
+    Checks if the generated answer is grounded in the retrieved documents and answers the question.
 
     Args:
-        state (dict): The current graph state
+        state (AgentState): The current state of the agent.
 
     Returns:
-        str: Decision for next node to call
+        str: The next node to call ("useful", "not useful", "not supported").
     """
 
     print("---CHECK HALLUCINATIONS---")
@@ -402,7 +447,7 @@ async def grade_generation_v_documents_and_question(state: AgentState):
         # print("check.hallucinations_checker, score: ", score)
         print("check.hallucinations_checker, grade: ", grade)
     except Exception as e:
-        print("Ошибка получения данных от check.hallucinations_checker: ", e)
+        print("Error in hallucination checker, check.hallucinations_checker: ", e)
 
     # Check hallucination
     if grade == "yes":
@@ -431,7 +476,9 @@ async def grade_generation_v_documents_and_question(state: AgentState):
 
 
 class Agent:
-
+    """
+    Represents an intelligent agent for handling user queries via a state graph.
+    """
     def __init__(self, system=""):
         self.system = system
         graph = StateGraph(AgentState)
@@ -494,7 +541,7 @@ class Agent:
 
 
 async def agent_conversation(agent: Agent):
-    """Функция для взаимодействия с пользователем в виде чата."""
+    """Handles user interaction with the agent."""
 
     # Инициализация пустой истории
     history = []
