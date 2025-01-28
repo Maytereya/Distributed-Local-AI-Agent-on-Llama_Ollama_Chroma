@@ -1,9 +1,8 @@
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 from chromadb.api.models.Collection import Collection
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
-from sentence_transformers import SentenceTransformer
 from chromadb import Documents, EmbeddingFunction, Embeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.document_loaders import TextLoader, DirectoryLoader
@@ -15,12 +14,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import uuid
 from typing import List
 import warnings
-import config as c  # Here are all ip, llm names and other important things
-
+import config as c
 
 # import chromadb.utils.embedding_functions as embedding_functions
 
-import chromadb.utils.embedding_functions as embedding_functions
 from InstructorEmbedding import INSTRUCTOR
 model = INSTRUCTOR('hkunlp/instructor-large')
 

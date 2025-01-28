@@ -11,8 +11,8 @@ from langchain_core.documents import Document  # представляет док
 from Deprecated.aretrieve import QueryCollection
 from Deprecated import agenerate
 import arouting
-import search
-import config as c  # Here are all ip, llm names and other important things
+from agent_logic_pack import search
+import config as c
 
 _ = load_dotenv()
 

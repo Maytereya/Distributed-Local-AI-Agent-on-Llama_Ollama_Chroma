@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 
-import config as c  # Stores IP, LLM names, and other configuration settings
+import config as c
 
 import time
 from ollama import AsyncClient, Options
