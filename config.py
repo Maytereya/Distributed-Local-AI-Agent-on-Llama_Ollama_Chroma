@@ -1,7 +1,13 @@
 import configparser
+import os
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('../config.ini')
+
+print("Current working directory:", os.getcwd())
+files_read = config.read('config.ini')
+print("Files read:", files_read)
+# print(config.sections())
 
 environment = 'PRODUCTION'  # OR 'DEVELOPMENT'
 
@@ -14,9 +20,9 @@ ll_model_big = config['DEFAULT']['ll_model_big']
 ll_model = config['DEFAULT']['ll_model']
 ll_model_small = config['DEFAULT']['ll_model_small']
 
-ll_model_large_ctx = config['DEFAULT']['ll_model_large_ctx']
-ll_model_large_ctx_70b = config['DEFAULT']['ll_model_large_ctx_70b']
+# ll_model_large_ctx = config['DEFAULT']['ll_model_large_ctx']
+# ll_model_large_ctx_70b = config['DEFAULT']['ll_model_large_ctx_70b']
 
-ll_model_llama31_70b_instruct_q8 = config['DEFAULT']['ll_model_llama31_70b_instruct_q8']
-question1 = config['DEFAULT']['question1']
-collect_name = config['DEFAULT']['collect_name']
+# ll_model_llama31_70b_instruct_q8 = config['DEFAULT']['ll_model_llama31_70b_instruct_q8']
+# question1 = config['DEFAULT']['question1']
+# collect_name = config['DEFAULT']['collect_name']

@@ -28,7 +28,7 @@ def get_embedding(text):
     return outputs.last_hidden_state.mean(dim=1)
 
 
-def filtrate(keyword: str, texts: list[Document]) -> list[Document]:
+def filtrate(keyword: str, texts: list[Document], threshold: float = 0.005) -> list[Document]:
     """
     Фильтрует документы на основе косинусного сходства с заданным ключевым словом,
     используя динамически устанавливаемое пороговое значение.
@@ -53,10 +53,10 @@ def filtrate(keyword: str, texts: list[Document]) -> list[Document]:
 
     # Определение порогового значения
     max_similarity = max(similarities, key=lambda x: x[1])[1]
-    threshold = max_similarity - 0.03
-    print("Dynamic Threshold: ", threshold)
+    dynamic_threshold = max_similarity - threshold
+    print("Dynamic Threshold: ", dynamic_threshold)
 
     # Фильтрация документов по пороговому значению
-    filtered_results = [doc for doc, sim in similarities if sim >= threshold]
+    filtered_results = [doc for doc, sim in similarities if sim >= dynamic_threshold]
 
     return filtered_results

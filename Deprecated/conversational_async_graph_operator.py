@@ -15,8 +15,8 @@ import warnings
 # My Project modules:
 from Deprecated.aretrieve import QueryCollection
 from Deprecated import conversational_arouting, memory_agenerate
-import search
-import config as c  # Here are all ip, llm names and other important things
+from agent_logic_pack import search
+import config as c
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"

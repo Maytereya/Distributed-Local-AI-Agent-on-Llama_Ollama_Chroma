@@ -1,7 +1,7 @@
 # Do not work properly (
 
 from graphviz import Digraph
-from conv_async_graph_operator3 import Agent  # Импортируем агента
+from agent_main import Agent  # Импортируем агента
 
 agent = Agent()
 

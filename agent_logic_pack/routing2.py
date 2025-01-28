@@ -1,5 +1,5 @@
-import config as c  # Here are all ip, llm names and other important things
-import json_converter as j
+from agent_logic_pack import json_converter as j
+import config as c
 import time
 from ollama import AsyncClient
 from datetime import datetime

@@ -1,9 +1,8 @@
 from langchain_core.documents import Document
 
-import config as c  # Here are all ip, llm names and other important things
+import config as c
 import time
-from ollama import AsyncClient, Options
-import json_converter as j
+from ollama import AsyncClient
 
 ollama_aclient = AsyncClient(host=c.ollama_url)
 

@@ -1,5 +1,5 @@
 # Async Retriever for Chroma DB v 3.0
-
+import asyncio
 # Model loading for embeddings
 # from InstructorEmbedding import INSTRUCTOR
 # i_model = INSTRUCTOR('hkunlp/instructor-large')
@@ -17,8 +17,7 @@
 # ==== Russian models =====
 # model_only = "ai-forever/sbert_large_nlu_ru"
 
-import asyncio
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 from chromadb.api.models.Collection import Collection
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_core.documents import Document
@@ -34,8 +33,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import uuid
 from typing import List
 import warnings
-import config as c  # # Stores IP, LLM names, and other important configurations
-import formulate
+from agent_logic_pack import formulate, embedding_filtration, path_handling
+import config as c
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
@@ -46,7 +45,7 @@ chroma_client = chromadb.HttpClient(host=c.chroma_host, port=c.chroma_port)
 
 
 def choose_model(model: Literal["distiluse", "sbert", "instructor", "default"] = "default",
-                 return_type: Literal["model", "name"] = "model") -> Union[SentenceTransformer, str]:
+                 return_type: Literal["model", "name"] = "model") -> SentenceTransformer | str:
     """
     Select and return either the sentence transformer model or the model name string.
 
@@ -100,10 +99,10 @@ class ChromaService:
         """
         list_col = self.chroma_client.list_collections()
         for col in list_col:
-            # Преобразуем объект в строку и находим значение name
-            name_part = str(col).split(", name=")[1].rstrip(")")
-            print(name_part)
-            # print(col)
+            # Преобразуем объект в строку и находим значение name (не работает)
+            # name_part = str(col).split(", name=")[1].rstrip(")")
+            # print(name_part)
+            print(col)
             print("=============")
 
     def preconditioning(self, target_name: str):
@@ -126,7 +125,7 @@ class ChromaService:
             print(f"Collection with name '{target_name}' exists, we'll delete it")
             self.chroma_client.delete_collection(target_name)
         else:
-            print(f"Collection with name '{target_name}' does not exist, we'll create it on the next step.")
+            print(f"Collection name '{target_name}' does not exist, we'll create it on the next step.")
 
 
 class HuggingFaceEmbeddingFunction(EmbeddingFunction[Documents]):
@@ -256,19 +255,21 @@ def handle_collection(existed_collection: str):
     """
     collection = chroma_client.get_collection(name=existed_collection,
                                               embedding_function=HuggingFaceEmbeddingFunction())
+    print("Common collection info:")
     # peek = collection.peek()  # returns a list of the first 10 items in the collection
-    count = collection.count()  # Get the number of items in the collection
-    print(f'the number of items in the collection: {count}')
+    # count =   # Get the number of items in the collection
+    # print(f"list of the first 10 items in the collection: {collection.peek()}")
+    print(f'the number of items in the collection: {collection.count()}')
 
 
 def create_collection(
-        exist_collection_name: str,
+        new_collection_name: str,
         model: Literal["distiluse", "sbert", "default"] = "default"
 ) -> Optional[Collection]:
     """
     Create a new collection in Chroma DB with the specified name.
 
-    :param exist_collection_name: The name of the new collection to create.
+    :param new_collection_name: The name of the new collection to create.
     :param model: The embedding model to use for the collection. Default: "default" (LaBSE-en-ru).
     :return: The created Collection object if successful, otherwise None.
     """
@@ -277,15 +278,15 @@ def create_collection(
 
     try:
         chroma_collection = chroma_client.create_collection(
-            name=exist_collection_name,
+            name=new_collection_name,
             embedding_function=embedding_function,
             metadata={"hnsw:space": "cosine"})  # Use cosine similarity as the default metric.
 
         if chroma_collection:
-            print(f"Creating collection: {exist_collection_name}")
+            print(f"Creating collection: {new_collection_name}")
             return chroma_collection
         else:
-            print(f"Failed to create collection: {exist_collection_name}")
+            print(f"Failed to create collection: {new_collection_name}")
             return None
     except Exception as e:
         print(f"An error occurred while creating the collection: {e}")
@@ -295,8 +296,8 @@ def create_collection(
 def add_data(
         exist_collection_name: str,
         upload_type: Literal["URL", "PDF", "TXT"],
-        add_urls: Optional[List[str]] = None,
-        add_path: Optional[str] = None,
+        add_urls: List[str] | None = None,
+        add_path: str | None = None,
         model: Literal["distiluse", "sbert", "instructor", "default"] = "default"
 ):
     """
@@ -523,62 +524,137 @@ def vs_query(
 
     return documents
 
-#
+
+# Main retrieve function, include all
+async def main_retrieve_async(search_type: Literal["vectorstore", "db"] = "vectorstore",
+                              return_type: Literal["list", "str"] = "list",
+                              k: int = 5,
+                              n_results: int = 2,
+                              threshold: float = 0.005,
+                              collection: str = "25_01_2025_LaBSE-en-ru_pdf",
+                              question: str = "причины апатии, коррекция",
+                              ) -> List[Document] | str:
+    """
+
+    :param return_type: Определяет, в каком виде выдается итог поиска: [Document] или str, по умолчанию [Document].
+    :param threshold: Порог срабатывания отсекателя похожих документов. Чем больше значение, тем больше документов попадет в выдачу.
+    :param n_results: Определяет количество документов в выдаче при поиске по ChromaDB.
+    :param k: Определяет количество документов в выдаче при поиске по Chroma Vectorstore.
+    :param search_type: Определяет принцип поиска: Vectorstore с фильтрацией по ключевому слову или ChromaDB c ключевым словом.
+    :param collection: Имя коллекции, которая будет создаваться.
+    :param question: Вопрос заданный пользователем.
+    :return: Список документов для ответа Агента.
+    """
+    print("Preparing an environment for working with collections...")
+    chr_service = ChromaService(c.chroma_host, c.chroma_port)
+    chr_service.info_chroma()
+    print(f"Query to collection: {collection}")
+    print("Question:", question)
+
+    async def keyword_from_question(question_in):
+        return await formulate.extract_keyword(question_in)
+
+    keyword = await keyword_from_question(question)
+
+    if search_type == "vectorstore":
+        documents = vs_query(collection, question=question, search_type="mmr", k=k, )
+        # Need two-step filtration
+        print("vectorstore search type enabled")
+        filtrated_docs = embedding_filtration.filtrate(keyword, documents, threshold=threshold)
+    else:
+        # Already filtrated in chroma_db algorythm
+        print("chroma_db search type enabled")
+        filtrated_docs = query_collection(collection, question, contains=keyword, n_results=n_results,
+                                          model="default")
+
+    print(f'{filtrated_docs=}')
+
+    if len(filtrated_docs) == 0:
+        filtrated_docs = [
+            Document(
+                metadata={"source": "neiry-ai.ru"},
+                page_content="Совпадений не найдено, cформулируйте запрос иначе",
+            )]
+
+    if return_type == "str":
+        result_str: str = '\n'.join(
+            '\n'.join(f_doc.page_content) if isinstance(f_doc.page_content, list)
+            else f_doc.page_content
+            for f_doc in filtrated_docs
+        )
+        return result_str
+
+    return filtrated_docs
+
+
+# ToDo: доделать!
+def main_upload(filename: str = "side_effects_guideline_for_RAG_paged.pdf",
+                collection: str = "25_01_2025_LaBSE-en-ru_pdf",
+                doc_type: Literal["URL", "PDF", "TXT"] = "PDF",
+                ) -> None:
+    """
+    Create collection and Upload the document in it.
+
+    :param filename:
+    :param collection: Name of the collection, that will be created in Chroma database.
+
+    :param doc_type: Choose one of supported types of the document to upload: "URL", "PDF", "TXT".
+    :return: None
+    """
+    chroma_service = ChromaService(c.chroma_host, c.chroma_port)
+    chroma_service.info_chroma()
+    # ToDo: Функция preconditioning требует доработки
+    chroma_service.preconditioning(collection)
+
+    path = path_handling.create_path(filename)
+    # Create collection:
+    create_collection(collection)
+    # Add web/pdf/txt data to collection...
+    add_data(exist_collection_name=collection, upload_type=doc_type,
+             add_path=path, )
+
+    return None
+
+
 # Test section
 #
 if __name__ == '__main__':
     print(':: TESTING ::')
+    result = asyncio.run(main_retrieve_async(return_type="str"))
+    print("==============")
+    print(result)
+    print("==============")
 
-    # PDF document to load pass
-    # file_path = "pdf/taking_guidelines.pdf"
-    # txt document directory pass
-    file_path = "Upload/"
+# PDF document to load pass
+# file_path = "pdf/taking_guidelines.pdf"
+# txt document directory pass
+# file_path = "../Upload/"
 
-    urls_rus = [
-        "https://neiro-psy.ru/blog/monopobiya-kak-nazyvaetsya-strah-ostavatsya-odnomu-i-kak-s-nim-spravitsya",
-        "https://neiro-psy.ru/blog/bipolyarnoe-rasstrojstvo-i-depressiya-ponimanie-razlichij",
-        "https://neiro-psy.ru/blog/razdvoenie-lichnosti-kak-raspoznat-simptomy-i-obratitsya-za-pomoshchyu",
-    ]
+# urls_rus = [
+#     "https://neiro-psy.ru/blog/monopobiya-kak-nazyvaetsya-strah-ostavatsya-odnomu-i-kak-s-nim-spravitsya",
+#     "https://neiro-psy.ru/blog/bipolyarnoe-rasstrojstvo-i-depressiya-ponimanie-razlichij",
+#     "https://neiro-psy.ru/blog/razdvoenie-lichnosti-kak-raspoznat-simptomy-i-obratitsya-za-pomoshchyu",
+# ]
 
-    collection_name: str = "25_10_2024_LaBSE-en-ru_pdf"
-    question = "причины апатии, коррекция"
+# chr_service.display_collections()
+#
+# chr_service.preconditioning(collection_name)
 
-    print("Preparing an environment for working with collections...")
-    ch_s = ChromaService(c.chroma_host, c.chroma_port)
-    ch_s.info_chroma()
-    ch_s.display_collections()
-    #
-    # ch_s.preconditioning(collection_name)
-    # print("Create collection...")
-    # create_collection(collection_name)
-    # print("Add web/pdf/txt data to collection...")
-    # add_data(exist_collection_name=collection_name, upload_type="PDF",
-    #          add_path="Upload/side_effects_guideline_for_RAG_paged.pdf", )
-    # print("Common data info:")
-    # handle_collection(collection_name)
-    print(f"Query to collection {collection_name}:")
-    print("Вопрос:", question)
+# Create collection:
+# create_collection(collection_name)
+# Add web/pdf/txt data to collection...
+# add_data(exist_collection_name=collection_name, upload_type="PDF",
+#          add_path="/Users/rakhmanov/PycharmProjects/LocalRAGagent0.1/Upload/side_effects_guideline_for_RAG_paged.pdf", )
 
+# for doc in documents:
+#     print("##############")
+#     print(doc.page_content)
+#     print(doc.metadata)
+#     print("##############")
+# print(" ==== ==== ")
 
-    # documents = vs_query(collection_name, question=question, search_type="mmr", k=5, )
-    #
-    # for doc in documents:
-    #     print("##############")
-    #     print(doc.page_content)
-    #     print(doc.metadata)
-    #     print("##############")
-    # print(" ==== ==== ")
-    # print(" ==== ==== ")
-    async def main(question_in):
-        return await formulate.extract_keyword(question_in)
-
-
-    a = asyncio.run(main(question))
-
-    documents = query_collection(collection_name, question, contains=a, n_results=2,
-                                 model="default")
-    for doc in documents:
-        print("###############")
-        print(doc.page_content)
-        print(doc.metadata)
-        print("###############")
+# for doc in documents:
+#     print("###############")
+#     print(doc.page_content)
+#     print(doc.metadata)
+#     print("###############")

@@ -1,12 +1,12 @@
 # Search
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 # from langchain_community.tools.tavily_search import TavilySearchResults
 from tavily import TavilyClient
 import time
 
 # os.environ["TAVILY_API_KEY"] = "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"
 
-_ = load_dotenv()
+# _ = load_dotenv()
 
 
 def web_search(question: str, outputs_number: int = 2):

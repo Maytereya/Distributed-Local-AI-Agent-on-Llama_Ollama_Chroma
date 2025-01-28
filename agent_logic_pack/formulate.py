@@ -1,14 +1,13 @@
 import asyncio
 
-import config as c  # Here are all ip, llm names and other important things
-import time
+import config as c
 from ollama import AsyncClient, Options
 
 ollama_aclient = AsyncClient(host=c.ollama_url)
 options = Options(temperature=1, )
 
 # Выбор llm
-llm = c.ll_model_small
+llm = c.ll_model_big
 
 
 async def formulate(question: str, ):
@@ -60,7 +59,7 @@ async def formulate(question: str, ):
 async def extract_keyword(query: str, ) -> str:
     """
     :param query: Формулировка, содержащая ключевое слово.
-    :return: Только ключевое слово для поиска в ChromaDB
+    :return: Только ключевое слово для поиска в ChromaDB или фильтрации результатов при поиске vectorstore
     """
 
     prompt = ('<|begin_of_text|><|start_header_id|>system<|end_header_id|> '

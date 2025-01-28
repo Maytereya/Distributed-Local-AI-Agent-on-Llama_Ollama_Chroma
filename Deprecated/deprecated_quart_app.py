@@ -1,6 +1,6 @@
 # app.py
 from quart import Quart, render_template, request, session
-from conv_async_graph_operator3 import Agent, run_agent  # Импортируем агента
+from agent_main import Agent, run_agent  # Импортируем агента
 
 app = Quart(__name__)
 app.secret_key = '3380841777'  # Для обеспечения безопасности сессий

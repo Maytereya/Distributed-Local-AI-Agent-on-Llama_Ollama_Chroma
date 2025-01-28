@@ -15,12 +15,9 @@ from langchain_core.documents import Document  # представляет док
 import warnings
 
 # R Project modules:
-import generate2 as generate
-import check
-import routing2 as route
+from agent_logic_pack import check, generate2 as generate, search, routing2 as route
+import config as c
 from Deprecated import aretrieve2 as retrieve
-import search
-import config as c  # Here are all ip, llm names and other important things
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"

@@ -1,4 +1,5 @@
 """
+V 3.0 (ex agent_main.py)
 This module implements a state-based conversational agent as a class,
 following the recommendations of DeepLearning.ai (Harris).
 It is designed as version 6.0, referred to as "long logic," and introduces extended functionality for chat interactions.
@@ -25,26 +26,21 @@ Key Features:
 import asyncio
 import copy
 from pprint import pprint
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from langgraph.graph import START, StateGraph, END
 from typing import TypedDict, Optional, List
 from langchain_core.documents import Document  # представляет документ.
 import warnings
 
-# R Project modules:
-import generate2 as generate
-import check
-import routing2 as route
-import aretrieve3 as retrieve
-import search
-import formulate
-import embedding_filtration as filtration
+# agent logic pack modules:
+from agent_logic_pack import aretrieve3 as retrieve, check, embedding_filtration as filtration, generate2 as generate, \
+    formulate, search, routing2 as route
 
 warnings.filterwarnings(
     "ignore", category=FutureWarning, module="transformers.tokenization_utils_base"
 )
 
-_ = load_dotenv()
+# _ = load_dotenv()
 
 
 # import os
@@ -479,6 +475,7 @@ class Agent:
     """
     Represents an intelligent agent for handling user queries via a state graph.
     """
+
     def __init__(self, system=""):
         self.system = system
         graph = StateGraph(AgentState)
